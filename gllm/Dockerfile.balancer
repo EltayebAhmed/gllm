@@ -1,0 +1,9 @@
+FROM python:3.10-slim
+
+
+RUN pip install flask requests pydantic
+RUN mkdir /app
+WORKDIR /app
+COPY . .
+ENV PYTHONPATH=/app
+CMD ["python", "/app/balancer.py"]

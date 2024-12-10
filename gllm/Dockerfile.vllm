@@ -1,0 +1,21 @@
+FROM vllm/vllm-openai:latest
+RUN pip install --upgrade pip
+RUN pip install requests openai pydantic --no-cache-dir
+RUN pip install --ignore-installed blinker
+RUN pip install Flask --no-cache-dir
+# Create a new user and group
+ARG UID
+# ARG GID
+RUN useradd -u $UID --create-home duser
+
+# # # Set ownership and permissions for relevant directories
+# # RUN chown -R duser:duser /usr/local/lib/python3.10/dist-packages && \
+# #     chmod -R 755 /usr/local/lib/python3.10/dist-packages
+
+# # Switch to the new user
+USER duser
+
+# # Set the working directory
+WORKDIR /home/duser
+
+COPY . .
