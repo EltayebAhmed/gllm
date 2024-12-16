@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import time
+from typing import Optional
 
 import requests
 
 from gllm import data_def
-
 
 
 class DistributionServerInterface:
@@ -12,6 +12,60 @@ class DistributionServerInterface:
         while server_address[-1] == "/":
             server_address = server_address[:-1]
         self.server_address = server_address
+
+    def get_completions(
+        self,
+        model: str,
+        prompt: str,
+        best_of: Optional[int] = None,
+        echo: bool = False,
+        frequency_penalty: float = 0.0,
+        logit_bias: dict = {},
+        logprobs: Optional[int] = None,
+        max_tokens: int = 16,
+        n: int = 1,
+        presence_penalty: float = 0.0,
+        seed: Optional[int] = None,
+        stop: Optional[list[str] | str] = None,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        return_mode: str = "openai",
+    ):
+        completion_request = data_def.CompletionRequest(
+            model=model,
+            prompt=prompt,
+            best_of=best_of,
+            echo=echo,
+            frequency_penalty=frequency_penalty,
+            logit_bias=logit_bias,
+            logprobs=logprobs,
+            max_tokens=max_tokens,
+            n=n,
+            presence_penalty=presence_penalty,
+            seed=seed,
+            stop=stop,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        response = requests.post(
+            self.server_address + "/completions",
+            json=completion_request.model_dump_json(),
+        )
+        if response.status_code != 200:
+            raise ValueError(
+                f"Failed to get completions. Status code: {response.status_code}\n"
+                f"Response: {response.text}"
+            )
+        response = data_def.CompletionResponse(**response.json())
+        if return_mode == "primitives":
+            return [choice.text for choice in response.choices]
+        elif return_mode == "openai":
+            return response
+        else:
+            raise ValueError(
+                f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
+            )
 
     def get_chat_completion(
         self,
@@ -102,7 +156,8 @@ class DistributionServerInterface:
 
 
 # The following classes allow us to define an object
-# with a structure that mimics the openAI response. Quack Quack.
+# with a structure that mimics the openAI response.
+# Quack Quack.
 @dataclass
 class Message:
     content: str
@@ -116,4 +171,4 @@ class MessageWrapper:
 
 @dataclass
 class Response:
-    choices: list[Message]
+    choices: list[MessageWrapper]

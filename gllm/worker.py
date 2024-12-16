@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import os
 import random
+import re
 import subprocess
 import threading
 
@@ -17,9 +18,6 @@ vllm_process = None
 app = Flask(__name__)
 
 start_and_kill_lock = threading.Lock()
-
-increment = 0
-span = 100
 
 
 def kill_process_and_children(pid):
@@ -59,14 +57,12 @@ def spin_up_vllm(model_path, vllm_port):
     # We briefly acquire the lock to wait for
     # the current process to terminate before starting a
     # new one.
-    global increment
     with start_and_kill_lock:
         pass
     if vllm_process is not None:
         terminate_vllm()
 
-    increment = (increment + 1) % span
-    print(f"Starting VLLM process with increment {increment}")
+    print(f"Starting VLLM process on port {vllm_port}")
     vllm_process = subprocess.Popen(
         [
             "vllm",
@@ -76,9 +72,7 @@ def spin_up_vllm(model_path, vllm_port):
             "--max-model-len",
             "9000",
             "--port",
-            str(vllm_port + increment),
-            # "--host",
-            # "0.0.0.0",
+            str(vllm_port),
             "--disable-log-stats",
             "--disable-log-requests",
         ]
@@ -110,7 +104,7 @@ def get_config():
 
     vllm_port = os.environ.get("VLLM_PORT", None)
     if vllm_port is None:
-        vllm_port = random.randint(8000, 60000)
+        vllm_port = 8087
     vllm_port = int(vllm_port)
 
     logging.info(f"VLLM port: {vllm_port}")
@@ -156,9 +150,7 @@ def openai_messages_to_chat_gen_resp(response):
 @app.route("/health", methods=["GET", "POST"])
 def health():
     try:
-        response = requests.get(
-            f"http://localhost:{config.vllm_port + increment}/health"
-        )
+        response = requests.get(f"http://localhost:{config.vllm_port}/health")
     except requests.RequestException as e:
         return Response(str(e), status=503)
     return Response(response.text, status=response.status_code)
@@ -169,8 +161,10 @@ def get_chat_completion():
     global config, increment
     chat_request = utils.get_request_params(request)
     chat_request = data_def.ChatGenerationRequest(**chat_request)
-    vllm_address = f"http://{config.self_hostname}:{config.vllm_port + increment}/v1"
+    vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1"
 
+    # Make this also REST API. Makes it easier to perculate up
+    # response codes and error messages
     client = openai.OpenAI(base_url=vllm_address, api_key="FREE_TOKENS_FOR_ALL")
     response = client.chat.completions.create(  # type: ignore
         model=chat_request.name_of_model,
@@ -183,6 +177,25 @@ def get_chat_completion():
     response = openai_messages_to_chat_gen_resp(response)
 
     return Response(response.model_dump_json(), status=200, mimetype="application/json")
+
+
+@app.route("/completions", methods=["POST"])
+def get_completion():
+    global config
+    completion_request = utils.get_request_params(request)
+    completion_request = data_def.CompletionRequest(**completion_request)
+    vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1/completions"
+
+    logging.warning("completion request:\n", dict(completion_request))
+    # response = client.completions.create(
+    #     **dict(completion_request)
+    # )
+
+    response = requests.post(vllm_address, json=dict(completion_request))
+    logging.warning("completion response:\n", response.text)
+
+    return Response(response.text, status=response.status_code)
+    # return Response("ok", status=200)
 
 
 if __name__ == "__main__":

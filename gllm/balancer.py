@@ -10,9 +10,9 @@ import utils
 
 ##################
 # TODO:
-# 1. Fix problem with workers come online after load model. This would involve
-# not sending requests to workers until they are healthy.
-# 2. Boot unhealthy servers that fail roo many request
+# 1. Fix problem with workers come online after load model. Explicitly we would have to 
+# not send requests to these worker until they are healthy.
+# 2. Boot unhealthy servers that fail too many request
 # 3. Allow errors (response code + text) from vllm serve to
 # be propagated through worker and balancer to the end client
 
@@ -63,6 +63,13 @@ def add_worker():
 
     return Response(model, status=200)
 
+def register_request_with_worker(worker_address):
+    with worker_queue_size.lock:
+        worker_queue_size.entity[worker_address] += 1
+
+def notify_worker_request_complete(worker_address):
+    with worker_queue_size.lock:
+        worker_queue_size.entity[worker_address] -= 1
 
 @app.route("/chat_completion", methods=["POST"])
 def get_chat_completion():
@@ -74,18 +81,35 @@ def get_chat_completion():
     if worker_address is None:
         return Response("No worker available", status=503)
 
-    with worker_queue_size.lock:
-        worker_queue_size.entity[worker_address] += 1
+    register_request_with_worker(worker_address)
 
     response = requests.post(
         worker_address + "/chat_completion", json=chat_request.model_dump_json()
     )
 
-    with worker_queue_size.lock:
-        worker_queue_size.entity[worker_address] -= 1
+    notify_worker_request_complete(worker_address)
 
     return Response(response.text, status=response.status_code)
 
+@app.route("/completions", methods=["POST"])
+def get_completion():
+    completion_request = utils.get_request_params(request)
+    completion_request = data_def.CompletionRequest(**completion_request)
+
+    worker_address = get_least_busy_worker()
+
+    if worker_address is None:
+        return Response("No worker available", status=503)
+
+    register_request_with_worker(worker_address)
+
+    response = requests.post(
+        worker_address + "/completions", json=completion_request.model_dump_json()
+    )
+
+    notify_worker_request_complete(worker_address)
+    
+    return Response(response.text, status=response.status_code)
 
 @app.route("/load_model", methods=["POST"])
 def load_model():

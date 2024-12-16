@@ -1,23 +1,37 @@
 import gllm
+import argparse
 
 
-address = "http://localhost:5333"
-model = "Qwen/Qwen2-7B-Instruct"
-load_model = True
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Simple LLM request')
+    parser.add_argument('--address', default="http://localhost:5333", help='Server address')
+    parser.add_argument('--model', default="Qwen/Qwen2-7B-Instruct", help='Model name')
+    parser.add_argument('--no-load', action='store_false', dest='load_model', help='Do not load model')
+    args = parser.parse_args()
 
-query = [
-    {"role": "system", "content": "You are an AI that tells jokes"},
-    {"role": "user", "content": "Tell me a joke about a cat."},
-]
+    address = args.address
+    model = args.model 
+    load_model = args.load_model
 
-glm_handle = gllm.DistributionServerInterface(address)
+    query = [
+        {"role": "system", "content": "You are an AI that tells jokes"},
+        {"role": "user", "content": "Tell me a joke about a cat."},
+    ]
 
-if load_model:
-    glm_handle.load_model(model)
+    glm_handle = gllm.DistributionServerInterface(address)
 
-glm_handle.wait_for_health()
-results = glm_handle.get_chat_completion(
-    model, query, max_tokens=100, temperature=0.5, return_mode="primitives"
-)
+    if load_model:
+        glm_handle.load_model(model)
 
-print(results)
+    glm_handle.wait_for_health()
+    results = glm_handle.get_chat_completion(
+        model, query, max_tokens=100, temperature=0.5, return_mode="primitives"
+    )
+
+    print(results)
+    completions = glm_handle.get_completions(
+        model, "Tell me a joke about a cat.", max_tokens=100, temperature=0.5, n=5,
+        return_mode="primitives"
+    )
+    print(completions)
+
