@@ -7,11 +7,16 @@ import requests
 from gllm import data_def
 
 
-class DistributionServerInterface:
+class GLLM:
     def __init__(self, server_address):
         while server_address[-1] == "/":
             server_address = server_address[:-1]
         self.server_address = server_address
+
+        # TODO: To deal with the statefulness which continues beyond the life of this
+        # object (i.e between success script runs) we need to fetch this from 
+        # the server. This is a temporary solution. 
+        self.last_loaded_model = None
 
     def get_completions(
         self,
@@ -117,6 +122,8 @@ class DistributionServerInterface:
                 f"Failed to load model. Status code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
+        
+        self.last_loaded_model = model_identifier
         return response.text
 
     def is_healthy(self, timeout: int = 5):

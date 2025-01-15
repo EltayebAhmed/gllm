@@ -15,7 +15,7 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['0']
+              device_ids: ['4']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
@@ -32,9 +32,29 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['1']
+              device_ids: ['5']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
       - PORT=9900
       - HF_TOKEN=${HF_TOKEN}
+
+
+  worker3:
+    extends:
+      file: compose_base.yml
+      service: worker_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['7']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=9901
+      - HF_TOKEN=${HF_TOKEN}
+
+
