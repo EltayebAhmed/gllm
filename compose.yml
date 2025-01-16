@@ -38,3 +38,38 @@ services:
       - SELF_HOSTNAME=127.0.0.1
       - PORT=9900
       - HF_TOKEN=${HF_TOKEN}
+
+
+  worker3:
+    extends:
+      file: compose_base.yml
+      service: worker_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['2']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=9500
+      - HF_TOKEN=${HF_TOKEN}
+
+  worker4:
+    extends:
+      file: compose_base.yml
+      service: worker_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['3']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=9320
+      - HF_TOKEN=${HF_TOKEN}
