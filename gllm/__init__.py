@@ -1,1 +1,1 @@
-from .interface import DistributionServerInterface
+from .interface import GLLM

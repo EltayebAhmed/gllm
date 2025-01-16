@@ -70,11 +70,12 @@ def spin_up_vllm(model_path, vllm_port):
             model_path,
             "--enable-prefix-caching",
             "--max-model-len",
-            "9000",
+            "14000",
             "--port",
             str(vllm_port),
             "--disable-log-stats",
             "--disable-log-requests",
+            "--uvicorn-log-level=error",
         ]
     )
 
