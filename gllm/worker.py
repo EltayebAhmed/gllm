@@ -76,6 +76,7 @@ def spin_up_vllm(model_path, vllm_port):
             "--disable-log-stats",
             "--disable-log-requests",
             "--uvicorn-log-level=error",
+            "--trust-remote-code"
         ]
     )
 

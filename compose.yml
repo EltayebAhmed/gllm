@@ -15,11 +15,12 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['4']
+              device_ids: ['0']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
       - PORT=8900
+      - VLLM_PORT=8901
       - HF_TOKEN=${HF_TOKEN}
 
   worker2:
@@ -32,11 +33,12 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['5']
+              device_ids: ['1']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
       - PORT=9900
+      - VLLM_PORT=9901
       - HF_TOKEN=${HF_TOKEN}
 
 
@@ -55,7 +57,9 @@ services:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
       - PORT=9500
+      - VLLM_PORT=9501
       - HF_TOKEN=${HF_TOKEN}
+
 
   worker4:
     extends:
@@ -72,4 +76,5 @@ services:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
       - PORT=9320
+      - VLLM_PORT=9321
       - HF_TOKEN=${HF_TOKEN}
