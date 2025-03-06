@@ -1,17 +1,16 @@
 import dataclasses
 import logging
 import os
-import random
-import re
 import subprocess
 import threading
 
+import openai
 import psutil
 import requests
 
 import data_def
+from consts import Endpoints
 from flask import Flask, Response, request
-import openai
 import utils
 
 vllm_process = None
@@ -20,7 +19,7 @@ app = Flask(__name__)
 start_and_kill_lock = threading.Lock()
 
 
-def kill_process_and_children(pid):
+def kill_process_and_children(pid: int):
     try:
         # Access the process
         parent = psutil.Process(pid)
@@ -42,7 +41,6 @@ def kill_process_and_children(pid):
 
 def terminate_vllm():
     global vllm_process
-
     if vllm_process is None:
         return
     with start_and_kill_lock:
@@ -52,33 +50,28 @@ def terminate_vllm():
         vllm_process = None
 
 
-def spin_up_vllm(model_path, vllm_port):
+def spin_up_vllm(model_path: str, vllm_port: int):
     global vllm_process
-    # We briefly acquire the lock to wait for
-    # the current process to terminate before starting a
-    # new one.
-    with start_and_kill_lock:
-        pass
     if vllm_process is not None:
         terminate_vllm()
-
-    print(f"Starting VLLM process on port {vllm_port}")
-    vllm_process = subprocess.Popen(
-        [
-            "vllm",
-            "serve",
-            model_path,
-            "--enable-prefix-caching",
-            "--max-model-len",
-            "14000",
-            "--port",
-            str(vllm_port),
-            "--disable-log-stats",
-            "--disable-log-requests",
-            "--uvicorn-log-level=error",
-            "--trust-remote-code"
-        ]
-    )
+    with start_and_kill_lock:
+        print(f"Starting VLLM process on port {vllm_port}")
+        vllm_process = subprocess.Popen(
+            [
+                "vllm",
+                "serve",
+                model_path,
+                "--enable-prefix-caching",
+                "--max-model-len",
+                "14000",
+                "--port",
+                str(vllm_port),
+                "--disable-log-stats",
+                "--disable-log-requests",
+                "--uvicorn-log-level=error",
+                "--trust-remote-code",
+            ]
+        )
 
     logging.info(f"VLLM process started with PID: {vllm_process.pid}")
 
@@ -114,7 +107,7 @@ def get_config():
     return Config(router_address, self_hostname, port, vllm_port)
 
 
-def register_worker(router_address, self_hostname, port):
+def register_worker(router_address: str, self_hostname: str, port):
 
     worker_add_rq = data_def.AddWorkerRequest(address=f"http://{self_hostname}:{port}")
     response = requests.post(
@@ -133,7 +126,7 @@ def register_worker(router_address, self_hostname, port):
         spin_up_vllm(model, config.vllm_port)
 
 
-@app.route("/load_model", methods=["POST"])
+@app.route(Endpoints.LOAD_MODEL, methods=["POST"])
 def load_model():
     global config
     load_model_rq = utils.get_request_params(request)
@@ -149,7 +142,7 @@ def openai_messages_to_chat_gen_resp(response):
     return data_def.ChatGenerationResponse(choices=choices)
 
 
-@app.route("/health", methods=["GET", "POST"])
+@app.route(Endpoints.HEALTH, methods=["GET", "POST"])
 def health():
     try:
         response = requests.get(f"http://localhost:{config.vllm_port}/health")
@@ -158,7 +151,7 @@ def health():
     return Response(response.text, status=response.status_code)
 
 
-@app.route("/chat_completion", methods=["POST"])
+@app.route(Endpoints.CHAT_COMPLETIONS, methods=["POST"])
 def get_chat_completion():
     global config, increment
     chat_request = utils.get_request_params(request)
@@ -173,6 +166,8 @@ def get_chat_completion():
         messages=dict(chat_request)["messages"],
         max_tokens=chat_request.max_tokens,
         temperature=chat_request.temperature,
+        n=chat_request.n,
+        stop=chat_request.stop,
     )
 
     # Iterate over response to turn choices into python primitives
@@ -181,7 +176,7 @@ def get_chat_completion():
     return Response(response.model_dump_json(), status=200, mimetype="application/json")
 
 
-@app.route("/completions", methods=["POST"])
+@app.route(Endpoints.COMPLETIONS, methods=["POST"])
 def get_completion():
     global config
     completion_request = utils.get_request_params(request)
@@ -198,6 +193,12 @@ def get_completion():
 
     return Response(response.text, status=response.status_code)
     # return Response("ok", status=200)
+
+
+@app.route(Endpoints.RELEASE_GPUS, methods=["POST"])
+def release_gpus():
+    terminate_vllm()
+    return Response("ok", status=200)
 
 
 if __name__ == "__main__":

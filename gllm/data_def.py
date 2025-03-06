@@ -8,13 +8,16 @@ class AddWorkerRequest(BaseModel):
 class Message(BaseModel):
     role: str
     content: str
+    refusal: Optional[str] = None
 
 
 class ChatGenerationRequest(BaseModel):
     messages: list[Message]
-    name_of_model: str
+    model: str
     max_tokens: int
     temperature: float = 1.0
+    n: int = 1
+    stop: Optional[list[str]| str] = None
 
 
 class LoadModelRequest(BaseModel):

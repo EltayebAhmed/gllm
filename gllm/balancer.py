@@ -7,10 +7,11 @@ from flask import Flask, Response, request
 
 import data_def
 import utils
+from consts import Endpoints
 
 ##################
 # TODO:
-# 1. Fix problem with workers come online after load model. Explicitly we would have to 
+# 1. Fix problem with workers come online after load model. Explicitly we would have to
 # not send requests to these worker until they are healthy.
 # 2. Boot unhealthy servers that fail too many request
 # 3. Allow errors (response code + text) from vllm serve to
@@ -39,19 +40,19 @@ def get_least_busy_worker():
         return worker
 
 
-@app.route("/health", methods=["GET"])
+@app.route(Endpoints.HEALTH, methods=["GET"])
 def health():
     if len(worker_queue_size.entity) == 0:
         return Response("No workers available", status=503)
     for worker in worker_queue_size.entity.keys():
-        response = requests.get(worker + "/health")
+        response = requests.get(worker + Endpoints.HEALTH)
         if response.status_code != 200:
             return Response("Worker unhealthy", status=503)
 
     return Response("All workers healthy", status=200)
 
 
-@app.route("/add_worker", methods=["POST"])
+@app.route(Endpoints.ADD_WORKER, methods=["POST"])
 def add_worker():
     global model, worker_queue_size
 
@@ -63,15 +64,18 @@ def add_worker():
 
     return Response(model, status=200)
 
+
 def register_request_with_worker(worker_address):
     with worker_queue_size.lock:
         worker_queue_size.entity[worker_address] += 1
+
 
 def notify_worker_request_complete(worker_address):
     with worker_queue_size.lock:
         worker_queue_size.entity[worker_address] -= 1
 
-@app.route("/chat_completion", methods=["POST"])
+
+@app.route(Endpoints.CHAT_COMPLETIONS, methods=["POST"])
 def get_chat_completion():
     chat_request = utils.get_request_params(request)
     chat_request = data_def.ChatGenerationRequest(**chat_request)
@@ -84,14 +88,15 @@ def get_chat_completion():
     register_request_with_worker(worker_address)
 
     response = requests.post(
-        worker_address + "/chat_completion", json=chat_request.model_dump_json()
+        worker_address + Endpoints.CHAT_COMPLETIONS, json=chat_request.model_dump_json()
     )
 
     notify_worker_request_complete(worker_address)
 
     return Response(response.text, status=response.status_code)
 
-@app.route("/completions", methods=["POST"])
+
+@app.route(Endpoints.COMPLETIONS, methods=["POST"])
 def get_completion():
     completion_request = utils.get_request_params(request)
     completion_request = data_def.CompletionRequest(**completion_request)
@@ -104,14 +109,15 @@ def get_completion():
     register_request_with_worker(worker_address)
 
     response = requests.post(
-        worker_address + "/completions", json=completion_request.model_dump_json()
+        worker_address + Endpoints.COMPLETIONS, json=completion_request.model_dump_json()
     )
 
     notify_worker_request_complete(worker_address)
-    
+
     return Response(response.text, status=response.status_code)
 
-@app.route("/load_model", methods=["POST"])
+
+@app.route(Endpoints.LOAD_MODEL, methods=["POST"])
 def load_model():
     global model
     load_model_rq = utils.get_request_params(request)
@@ -122,7 +128,7 @@ def load_model():
     failed = False
     for worker in worker_queue_size.entity.keys():
         response = requests.post(
-            worker + "/load_model", json=load_model_rq.model_dump_json()
+            worker + Endpoints.LOAD_MODEL, json=load_model_rq.model_dump_json()
         )
         if response.status_code != 200:
             failed = True
@@ -131,6 +137,19 @@ def load_model():
         return Response("Failed to load model", status=500)
 
     return Response("Model load requested", status=200)
+
+
+@app.route(Endpoints.RELEASE_GPUS, methods=["POST"])
+def release_gpus():
+    failed = False
+    for worker in worker_queue_size.entity.keys():
+        response = requests.post(worker + Endpoints.RELEASE_GPUS)
+        if response.status_code != 200:
+            failed = True
+    if failed:
+        return Response("Failed to release gpus", status=500)
+
+    return Response("Gpus released", status=200)
 
 
 if __name__ == "__main__":

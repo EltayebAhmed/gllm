@@ -5,18 +5,27 @@ from typing import Optional
 import requests
 
 from gllm import data_def
+from gllm.consts import Endpoints
+import backoff
+
+class RemoteError(Exception):
+    """Raised when the server returns an error response."""
 
 
 class GLLM:
-    def __init__(self, server_address):
+    def __init__(self, server_address:str, api_key: Optional[str] = None):
         while server_address[-1] == "/":
             server_address = server_address[:-1]
         self.server_address = server_address
+        self.api_key = api_key
+        self.headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
 
         # TODO: To deal with the statefulness which continues beyond the life of this
         # object (i.e between success script runs) we need to fetch this from 
         # the server. This is a temporary solution. 
+        # A few months latet this temporary solution is still around.
         self.last_loaded_model = None
+
 
     def get_completions(
         self,
@@ -54,11 +63,12 @@ class GLLM:
         )
 
         response = requests.post(
-            self.server_address + "/completions",
+            self.server_address + Endpoints.COMPLETIONS,
             json=completion_request.model_dump_json(),
+            headers=self.headers,
         )
         if response.status_code != 200:
-            raise ValueError(
+            raise RemoteError(
                 f"Failed to get completions. Status code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
@@ -72,50 +82,72 @@ class GLLM:
                 f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
             )
 
+    @backoff.on_exception(backoff.expo, RemoteError, max_time=60)
     def get_chat_completion(
         self,
         model: str,
         messages: list[dict[str, str]],
         max_tokens: int,
         temperature: float,
+        n: int = 1,
+        stop: Optional[list[str] | str] = None,
         return_mode: str = "openai",
     ):
         chat_request = data_def.ChatGenerationRequest(
-            name_of_model=model,
+            model=model,
             messages=messages,  # type: ignore
             max_tokens=max_tokens,
             temperature=temperature,
+            n=n,
+            stop=stop,
         )
-
+        json = chat_request.model_dump()
+        # json['provider'] = {'order': ['Friendli']}
         response = requests.post(
-            self.server_address + "/chat_completion",
-            json=chat_request.model_dump_json(),
+            self.server_address + Endpoints.CHAT_COMPLETIONS,
+            json=chat_request.model_dump(),
+            headers=self.headers,
         )
+        # breakpoint()
         if response.status_code != 200:
-            raise ValueError(
+            raise RemoteError(
                 f"Failed to get chat completion. Status code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
+        choices = response.json()["choices"]
+        # OpenAI and Vllm have different response structures
+        # This code tries to handle that but further research might be 
+        # needed to ensure that this is correct.
+        if choices and "message" in choices[0]:
+            choices = [choice["message"] for choice in choices]
+
         if return_mode == "primitives":
-            return [choice for choice in response.json()["choices"]]
+            return [choice for choice in choices]
         elif return_mode == "openai":
-            response = Response(
+            return Response(
                 choices=[
                     MessageWrapper(Message(**choice))
-                    for choice in response.json()["choices"]
+                    for choice in choices
                 ]
-            )
-        else:
-            raise ValueError(
-                f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
-            )
+        )
 
-        return response
+        raise ValueError(
+            f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
+        )
 
+    
     def load_model(self, model_identifier: str):
+        """Load a model onto a GLLM worker.
+        
+        Note: Function only supported for GLLM worker backend.
+        Args:
+            model_identifier (str): Identifier of the model to load. Can be a 
+                path to the model or a huggingface model identifier. Path 
+                must be accessible by the worker.
+        """
         request = data_def.LoadModelRequest(model_path=model_identifier)
         response = requests.post(
-            self.server_address + "/load_model", json=request.model_dump_json()
+            self.server_address + Endpoints.LOAD_MODEL, json=request.model_dump_json()
         )
         if response.status_code != 200:
             raise ValueError(
@@ -127,8 +159,12 @@ class GLLM:
         return response.text
 
     def is_healthy(self, timeout: int = 5):
+        """Return True if the server is healthy, False otherwise.
+        
+        Not supported for all backends. If not supported, will always return True."""
         try:
-            response = requests.get(self.server_address + "/health", timeout=timeout)
+            response = requests.get(self.server_address + Endpoints.HEALTH, timeout=timeout,
+                                    headers=self.headers)
         except requests.RequestException as e:
             return False
 
@@ -150,8 +186,9 @@ class GLLM:
         end_time = time.time() + timeout
         while time.time() < end_time:
             try:
-                response = requests.get(
-                    self.server_address + "/health", timeout=check_interval
+                requests.get(
+                    self.server_address + Endpoints.HEALTH, timeout=check_interval,
+                    headers=self.headers
                 )
                 return
             except requests.RequestException:
@@ -160,6 +197,14 @@ class GLLM:
             print("Waiting for server to come live ...")
 
         raise TimeoutError("Server did not come live in time")
+    
+    def release_gpus(self):
+        response = requests.post(self.server_address + Endpoints.RELEASE_GPUS, headers=self.headers)
+        if response.status_code != 200:
+            raise RemoteError(
+                f"Failed to release GPUs. Status code: {response.status_code}\n"
+                f"Response: {response.text}"
+            )
 
 
 # The following classes allow us to define an object
