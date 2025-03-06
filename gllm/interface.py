@@ -101,14 +101,12 @@ class GLLM:
             n=n,
             stop=stop,
         )
-        json = chat_request.model_dump()
-        # json['provider'] = {'order': ['Friendli']}
         response = requests.post(
             self.server_address + Endpoints.CHAT_COMPLETIONS,
             json=chat_request.model_dump(),
             headers=self.headers,
         )
-        # breakpoint()
+
         if response.status_code != 200:
             raise RemoteError(
                 f"Failed to get chat completion. Status code: {response.status_code}\n"
@@ -209,7 +207,7 @@ class GLLM:
 
 # The following classes allow us to define an object
 # with a structure that mimics the openAI response.
-# Quack Quack.
+# Quack quack.
 @dataclass
 class Message:
     content: str
