@@ -103,7 +103,7 @@ class GLLM:
         )
         response = requests.post(
             self.server_address + Endpoints.CHAT_COMPLETIONS,
-            json=chat_request.model_dump(),
+            json=chat_request.model_dump_json(),
             headers=self.headers,
         )
 

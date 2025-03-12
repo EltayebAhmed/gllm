@@ -184,15 +184,10 @@ def get_completion():
     vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1/completions"
 
     logging.warning("completion request:\n", dict(completion_request))
-    # response = client.completions.create(
-    #     **dict(completion_request)
-    # )
 
     response = requests.post(vllm_address, json=dict(completion_request))
-    logging.warning("completion response:\n", response.text)
 
     return Response(response.text, status=response.status_code)
-    # return Response("ok", status=200)
 
 
 @app.route(Endpoints.RELEASE_GPUS, methods=["POST"])

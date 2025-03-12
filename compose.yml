@@ -4,67 +4,19 @@ services:
     extends:
       file: compose_base.yml
       service: balancer
-
+  local_base:
+    extends:
+      file: compose_base.yml
+      service: worker_base
+    volumes:
+      # - /homes/80/eltayeb/code:/mount
+      # - /homes/80/eltayeb/artifacts:/data
+      # - /export/:/scratch
+      - /export/fn03/eltayeb/bbc/:/data
+      - /export/fn03/eltayeb/bbc/:/share
   worker1:
     extends:
-      file: compose_base.yml
-      service: worker_base
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              driver: nvidia
-              device_ids: ['0']
-    environment:
-      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
-      - SELF_HOSTNAME=127.0.0.1
-      - PORT=8900
-      - VLLM_PORT=8901
-      - HF_TOKEN=${HF_TOKEN}
-
-  worker2:
-    extends:
-      file: compose_base.yml
-      service: worker_base
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              driver: nvidia
-              device_ids: ['1']
-    environment:
-      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
-      - SELF_HOSTNAME=127.0.0.1
-      - PORT=9900
-      - VLLM_PORT=9901
-      - HF_TOKEN=${HF_TOKEN}
-
-
-  worker3:
-    extends:
-      file: compose_base.yml
-      service: worker_base
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              driver: nvidia
-              device_ids: ['2']
-    environment:
-      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
-      - SELF_HOSTNAME=127.0.0.1
-      - PORT=9500
-      - VLLM_PORT=9501
-      - HF_TOKEN=${HF_TOKEN}
-
-
-  worker4:
-    extends:
-      file: compose_base.yml
-      service: worker_base
+      service: local_base
     deploy:
       resources:
         reservations:
@@ -75,6 +27,81 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
+      - PORT=8940
+      - VLLM_PORT=8941
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+  worker2:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['4']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=7870
+      - VLLM_PORT=7871
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+
+  worker3:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['7']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=9170
+      - VLLM_PORT=9171
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+
+  worker4:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['4']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
       - PORT=9320
       - VLLM_PORT=9321
       - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+  worker5:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['6']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=9328
+      - VLLM_PORT=9329
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
