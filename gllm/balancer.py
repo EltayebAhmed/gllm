@@ -1,13 +1,13 @@
+import multiprocessing.pool
 import os
 import threading
 
 import requests
 
-from flask import Flask, Response, request
-
-import data_def
-import utils
 from consts import Endpoints
+import data_def
+from flask import Flask, Response, request
+import utils
 
 ##################
 # TODO:
@@ -88,7 +88,7 @@ def get_chat_completion():
     register_request_with_worker(worker_address)
 
     response = requests.post(
-        worker_address + Endpoints.CHAT_COMPLETIONS, json=chat_request.model_dump_json()
+        worker_address + Endpoints.CHAT_COMPLETIONS, json=chat_request.model_dump()
     )
 
     notify_worker_request_complete(worker_address)
@@ -109,7 +109,8 @@ def get_completion():
     register_request_with_worker(worker_address)
 
     response = requests.post(
-        worker_address + Endpoints.COMPLETIONS, json=completion_request.model_dump_json()
+        worker_address + Endpoints.COMPLETIONS,
+        json=completion_request.model_dump(),
     )
 
     notify_worker_request_complete(worker_address)
@@ -128,7 +129,7 @@ def load_model():
     failed = False
     for worker in worker_queue_size.entity.keys():
         response = requests.post(
-            worker + Endpoints.LOAD_MODEL, json=load_model_rq.model_dump_json()
+            worker + Endpoints.LOAD_MODEL, json=load_model_rq.model_dump()
         )
         if response.status_code != 200:
             failed = True
@@ -141,12 +142,14 @@ def load_model():
 
 @app.route(Endpoints.RELEASE_GPUS, methods=["POST"])
 def release_gpus():
-    failed = False
-    for worker in worker_queue_size.entity.keys():
-        response = requests.post(worker + Endpoints.RELEASE_GPUS)
-        if response.status_code != 200:
-            failed = True
-    if failed:
+    def release_gpu_worker(worker_address):
+        response = requests.post(worker_address + Endpoints.RELEASE_GPUS)
+        return response.status_code == 200
+
+    with multiprocessing.pool.ThreadPool(len(worker_queue_size.entity)) as pool:
+        results = pool.map(release_gpu_worker, worker_queue_size.entity.keys())
+
+    if not all(results):
         return Response("Failed to release gpus", status=500)
 
     return Response("Gpus released", status=200)

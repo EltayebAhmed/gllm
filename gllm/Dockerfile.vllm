@@ -5,15 +5,20 @@ RUN pip install --ignore-installed blinker
 RUN pip install Flask --no-cache-dir
 # Create a new user and group
 ARG UID
-# ARG GID
-RUN useradd -u $UID --create-home duser
+ARG GID
+RUN useradd -u $UID -g $GID --create-home duser
 
 # # # Set ownership and permissions for relevant directories
 # # RUN chown -R duser:duser /usr/local/lib/python3.10/dist-packages && \
 # #     chmod -R 755 /usr/local/lib/python3.10/dist-packages
 
 # # Switch to the new user
+RUN mkdir /data
+RUN chown -R duser /data
+RUN chmod 777 /data
+RUN chmod -R 777 /root
 USER duser
+ENV PATH=$PATH
 
 # # Set the working directory
 WORKDIR /home/duser

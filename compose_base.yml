@@ -16,6 +16,7 @@ services:
       dockerfile: Dockerfile.vllm
       args:
         UID: ${UID}
+        GID: ${GID}
     network_mode: host
 
     depends_on:
@@ -23,7 +24,8 @@ services:
     entrypoint: ["python3", "worker.py"]
     # volumes:
     #   - /scratch/local/homes/80/eltayeb/artifacts/papi2:/home/duser/output
-    
+    # /root/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/bin/
+    # bash: /opt/venv/bin/python
     deploy:
       resources:
         reservations:
@@ -38,49 +40,49 @@ services:
       - SELF_HOSTNAME=${PROJECT}-worker_1-1
       - HF_TOKEN=${HF_TOKEN}
     
-  worker_2:
-    entrypoint: ["python3", "worker.py"]
-    volumes:
-      - /scratch/local/homes/80/eltayeb/artifacts/papi2:/home/duser/output
+  # worker_2:
+  #   entrypoint: ["python3", "worker.py"]
+  #   volumes:
+  #     - /scratch/local/homes/80/eltayeb/artifacts/papi2:/home/duser/output
     
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              # count: 1
-              device_ids: ['1'] 
-              capabilities: [gpu]
-    environment:
-      - ROUTER_ADDRESS=http://${PROJECT}-balancer-1:5000
-      - SELF_HOSTNAME=${PROJECT}-worker_2-1
-      - HF_TOKEN=${HF_TOKEN}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             # count: 1
+  #             device_ids: ['1'] 
+  #             capabilities: [gpu]
+  #   environment:
+  #     - ROUTER_ADDRESS=http://${PROJECT}-balancer-1:5000
+  #     - SELF_HOSTNAME=${PROJECT}-worker_2-1
+  #     - HF_TOKEN=${HF_TOKEN}
 
-  worker_3:
-    build:
-        context: server
-        dockerfile: Dockerfile.vllm
-        args:
-          UID: ${UID}
+  # worker_3:
+  #   build:
+  #       context: server
+  #       dockerfile: Dockerfile.vllm
+  #       args:
+  #         UID: ${UID}
 
-    depends_on:
-      - balancer
-    entrypoint: ["python3", "worker.py"]
-    volumes:
-      - /scratch/local/homes/80/eltayeb/artifacts/papi2:/home/duser/output
+  #   depends_on:
+  #     - balancer
+  #   entrypoint: ["python3", "worker.py"]
+  #   volumes:
+  #     - /scratch/local/homes/80/eltayeb/artifacts/papi2:/home/duser/output
     
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              # count: 1
-              device_ids: ['2'] 
-              capabilities: [gpu]
-    environment:
-      - ROUTER_ADDRESS=http://${PROJECT}-balancer-1:5000
-      - SELF_HOSTNAME=${PROJECT}-worker_3-1
-      - HF_TOKEN=${HF_TOKEN}
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             # count: 1
+  #             device_ids: ['2'] 
+  #             capabilities: [gpu]
+  #   environment:
+  #     - ROUTER_ADDRESS=http://${PROJECT}-balancer-1:5000
+  #     - SELF_HOSTNAME=${PROJECT}-worker_3-1
+  #     - HF_TOKEN=${HF_TOKEN}
 
   # worker_4:
   #   build:

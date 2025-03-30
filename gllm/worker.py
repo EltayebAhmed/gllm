@@ -111,12 +111,13 @@ def register_worker(router_address: str, self_hostname: str, port):
 
     worker_add_rq = data_def.AddWorkerRequest(address=f"http://{self_hostname}:{port}")
     response = requests.post(
-        f"{router_address}/add_worker", json=worker_add_rq.model_dump_json()
+        f"{router_address}/add_worker", json=worker_add_rq.model_dump()
     )
 
     if response.status_code != 200:
         raise ValueError(
             f"Failed to register worker. Status code: {response.status_code}"
+            f"Response: {response.text}"
         )
 
     logging.info("Worker registered successfully")
@@ -158,11 +159,11 @@ def get_chat_completion():
     chat_request = data_def.ChatGenerationRequest(**chat_request)
     vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1"
 
-    # Make this also REST API. Makes it easier to perculate up
+    # TODO Make this also REST API. Makes it easier to perculate up
     # response codes and error messages
     client = openai.OpenAI(base_url=vllm_address, api_key="FREE_TOKENS_FOR_ALL")
     response = client.chat.completions.create(  # type: ignore
-        model=chat_request.name_of_model,
+        model=chat_request.model,
         messages=dict(chat_request)["messages"],
         max_tokens=chat_request.max_tokens,
         temperature=chat_request.temperature,
@@ -173,7 +174,7 @@ def get_chat_completion():
     # Iterate over response to turn choices into python primitives
     response = openai_messages_to_chat_gen_resp(response)
 
-    return Response(response.model_dump_json(), status=200, mimetype="application/json")
+    return Response(response.model_dump(), status=200, mimetype="application/json")
 
 
 @app.route(Endpoints.COMPLETIONS, methods=["POST"])

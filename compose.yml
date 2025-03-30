@@ -10,10 +10,10 @@ services:
       service: worker_base
     volumes:
       # - /homes/80/eltayeb/code:/mount
-      # - /homes/80/eltayeb/artifacts:/data
+      - /homes/80/eltayeb/artifacts:/data
       # - /export/:/scratch
-      - /export/fn03/eltayeb/bbc/:/data
-      - /export/fn03/eltayeb/bbc/:/share
+      # - /export/fn03/eltayeb/bbc/:/data
+      # - /export/fn03/eltayeb/bbc/:/share
   worker1:
     extends:
       service: local_base
@@ -23,7 +23,7 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['3']
+              device_ids: ['1']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
@@ -60,7 +60,7 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['7']
+              device_ids: ['5']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
@@ -79,7 +79,7 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['4']
+              device_ids: ['6']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
@@ -88,20 +88,20 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
-  worker5:
-    extends:
-      service: local_base
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              driver: nvidia
-              device_ids: ['6']
-    environment:
-      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
-      - SELF_HOSTNAME=127.0.0.1
-      - PORT=9328
-      - VLLM_PORT=9329
-      - HF_TOKEN=${HF_TOKEN}
-      - HF_HOME=/data/.cache/huggingface
+  # worker5:
+  #   extends:
+  #     service: local_base
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - capabilities: [gpu]
+  #             driver: nvidia
+  #             device_ids: ['6']
+  #   environment:
+  #     - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+  #     - SELF_HOSTNAME=127.0.0.1
+  #     - PORT=9328
+  #     - VLLM_PORT=9329
+  #     - HF_TOKEN=${HF_TOKEN}
+  #     - HF_HOME=/data/.cache/huggingface
