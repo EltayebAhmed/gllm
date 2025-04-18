@@ -14,6 +14,27 @@ services:
       # - /export/:/scratch
       # - /export/fn03/eltayeb/bbc/:/data
       # - /export/fn03/eltayeb/bbc/:/share
+    profiles:
+        - local_base
+
+  worker0:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['0']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=8711
+      - VLLM_PORT=8712
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface 
+
   worker1:
     extends:
       service: local_base
@@ -27,8 +48,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8940
-      - VLLM_PORT=8941
+      - PORT=8713
+      - VLLM_PORT=8714
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -41,12 +62,12 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['4']
+              device_ids: ['2']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=7870
-      - VLLM_PORT=7871
+      - PORT=8715
+      - VLLM_PORT=8716
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -60,12 +81,12 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
-              device_ids: ['5']
+              device_ids: ['3']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=9170
-      - VLLM_PORT=9171
+      - PORT=8717
+      - VLLM_PORT=8718
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -79,29 +100,65 @@ services:
           devices:
             - capabilities: [gpu]
               driver: nvidia
+              device_ids: ['4']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=8719
+      - VLLM_PORT=8720
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+  worker5:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['5']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=8721
+      - VLLM_PORT=8722
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
+
+  worker6:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
               device_ids: ['6']
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=9320
-      - VLLM_PORT=9321
+      - PORT=8723
+      - VLLM_PORT=8724
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
-  # worker5:
-  #   extends:
-  #     service: local_base
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - capabilities: [gpu]
-  #             driver: nvidia
-  #             device_ids: ['6']
-  #   environment:
-  #     - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
-  #     - SELF_HOSTNAME=127.0.0.1
-  #     - PORT=9328
-  #     - VLLM_PORT=9329
-  #     - HF_TOKEN=${HF_TOKEN}
-  #     - HF_HOME=/data/.cache/huggingface
+  worker7:
+    extends:
+      service: local_base
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              driver: nvidia
+              device_ids: ['7']
+    environment:
+      - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
+      - SELF_HOSTNAME=127.0.0.1
+      - PORT=8725
+      - VLLM_PORT=8726
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/data/.cache/huggingface
