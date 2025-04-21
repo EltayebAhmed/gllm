@@ -184,8 +184,6 @@ def get_completion():
     completion_request = data_def.CompletionRequest(**completion_request)
     vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1/completions"
 
-    logging.warning("completion request:\n", dict(completion_request))
-
     response = requests.post(vllm_address, json=dict(completion_request))
 
     return Response(response.text, status=response.status_code)
