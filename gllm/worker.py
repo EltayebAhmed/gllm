@@ -14,6 +14,7 @@ from flask import Flask, Response, request
 import utils
 
 vllm_process = None
+model_path = ""
 app = Flask(__name__)
 
 start_and_kill_lock = threading.Lock()
@@ -130,9 +131,15 @@ def register_worker(router_address: str, self_hostname: str, port):
 @app.route(Endpoints.LOAD_MODEL, methods=["POST"])
 def load_model():
     global config
+    global model_path
     load_model_rq = utils.get_request_params(request)
     load_model_rq = data_def.LoadModelRequest(**load_model_rq)
+    logging.warning(f"Load model request: {load_model_rq}")
+    if load_model_rq.model_path == model_path and not load_model_rq.force_reload:
+        return Response("Model already loaded", status=200)
+
     spin_up_vllm(load_model_rq.model_path, config.vllm_port)
+    model_path = load_model_rq.model_path
     return Response("Model load requested", status=200)
 
 

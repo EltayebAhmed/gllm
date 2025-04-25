@@ -22,6 +22,7 @@ class ChatGenerationRequest(BaseModel):
 
 class LoadModelRequest(BaseModel):
     model_path: str
+    force_reload: bool = False
 
 
 class ChatGenerationResponse(BaseModel):

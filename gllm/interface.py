@@ -131,7 +131,7 @@ class GLLM:
             f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
         )
 
-    def load_model(self, model_identifier: str):
+    def load_model(self, model_identifier: str, force_reload: bool = False):
         """Load a model onto a GLLM worker.
 
         Note: Function only supported for GLLM worker backend.
@@ -140,7 +140,9 @@ class GLLM:
                 path to the model or a huggingface model identifier. Path
                 must be accessible by the worker.
         """
-        request = data_def.LoadModelRequest(model_path=model_identifier)
+        request = data_def.LoadModelRequest(
+            model_path=model_identifier, force_reload=force_reload
+        )
         response = requests.post(
             self.server_address + Endpoints.LOAD_MODEL, json=request.model_dump()
         )
@@ -199,9 +201,10 @@ class GLLM:
 
     def release_gpus(self, timeout: int = 20):
         response = requests.post(
-            self.server_address + Endpoints.RELEASE_GPUS, headers=self.headers,
+            self.server_address + Endpoints.RELEASE_GPUS,
+            headers=self.headers,
             timeout=timeout,
-        # No retries for release_gpus
+            # No retries for release_gpus
         )
         if response.status_code != 200:
             raise RemoteError(
