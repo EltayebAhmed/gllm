@@ -24,5 +24,6 @@ ENV PATH=$PATH
 
 # # Set the working directory
 WORKDIR /home/duser
-
+# Install transformers from source. Fixes a bug with transformers x VLLM
+RUN pip install git+https://github.com/huggingface/transformers
 COPY . .
