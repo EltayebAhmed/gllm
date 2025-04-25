@@ -198,7 +198,9 @@ def get_completion():
 
 @app.route(Endpoints.RELEASE_GPUS, methods=["POST"])
 def release_gpus():
+    global model_path
     terminate_vllm()
+    model_path = ""
     return Response("ok", status=200)
 
 
