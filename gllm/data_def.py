@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Optional
 
 class AddWorkerRequest(BaseModel):
     address: str
@@ -47,8 +47,8 @@ class CompletionRequest(BaseModel):
 
 class CompletionChoice(BaseModel):
     text: str
-    index: int
-    logprobs: None = None # raise NotImplementedError :)
+    index: Optional[int] = None
+    logprobs: Optional[Any] = None # TODO: define this
     finish_reason: str
 
 class CompletionUsage(BaseModel):
