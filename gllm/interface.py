@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+import logging
 import time
 from typing import Optional
 
+import backoff
 import requests
 
 from gllm import data_def
 from gllm.consts import Endpoints
-import backoff
 
 
 class RemoteError(Exception):
@@ -177,7 +178,7 @@ class GLLM:
             if self.is_healthy():
                 return True
             time.sleep(check_interval)
-            print("Waiting for server to be healthy ...")
+            logging.info("Waiting for server to be healthy ...")
 
         raise TimeoutError("Server did not become healthy in time")
 
@@ -195,7 +196,7 @@ class GLLM:
             except requests.RequestException:
                 pass
             time.sleep(check_interval)
-            print("Waiting for server to come live ...")
+            logging.info("Waiting for server to come live ...")
 
         raise TimeoutError("Server did not come live in time")
 
