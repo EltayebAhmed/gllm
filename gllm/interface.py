@@ -28,7 +28,7 @@ class GLLM:
         # A few months latet this temporary solution is still around.
         self.last_loaded_model = None
 
-    @backoff.on_exception(backoff.expo, RemoteError, max_time=120)
+    # @backoff.on_exception(backoff.expo, RemoteError, max_time=1)
     def get_completions(
         self,
         model: str,
@@ -171,7 +171,7 @@ class GLLM:
     def is_healthy(self, timeout: int = 5):
         """Return True if the server is healthy, False otherwise.
 
-        Not supported for all backends. If not supported, will always return True."""
+        Not supported for all backends. TODO: If not supported, always return True."""
         try:
             response = requests.get(
                 self.server_address + Endpoints.HEALTH,
