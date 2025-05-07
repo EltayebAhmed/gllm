@@ -46,7 +46,7 @@ class CompletionRequest(BaseModel):
 
 class CompletionChoice(BaseModel):
     text: str
-    index: int
+    index: Optional[int] = None
     logprobs: None = None # raise NotImplementedError :)
     finish_reason: str
 

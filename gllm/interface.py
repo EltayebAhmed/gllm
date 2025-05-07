@@ -27,6 +27,7 @@ class GLLM:
         # A few months latet this temporary solution is still around.
         self.last_loaded_model = None
 
+    @backoff.on_exception(backoff.expo, RemoteError, max_time=120)
     def get_completions(
         self,
         model: str,
@@ -69,13 +70,24 @@ class GLLM:
         )
         if response.status_code != 200:
             raise RemoteError(
-                f"Failed to get completions. Status code: {response.status_code}\n"
+                f"Failed to get completions.\nStatus code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
-        response = data_def.CompletionResponse(**response.json())
+
+        try:
+            response = data_def.CompletionResponse(**response.json())
+        except Exception as e:
+            raise RemoteError(
+                f"Failed to parse response.\nStatus code: {response.status_code}\n"
+                f"This typically happens due to being rate limited.\n"
+                f"Response: {response.text}\n"
+                f"Error: {e}"
+            )
         if return_mode == "primitives":
             return [choice.text for choice in response.choices]
         elif return_mode == "openai":
+            return response
+        elif return_mode == "raw":
             return response
         else:
             raise ValueError(
