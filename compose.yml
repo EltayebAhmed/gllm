@@ -10,7 +10,8 @@ services:
       service: worker_base
     volumes:
       # - /homes/80/eltayeb/code:/mount
-      - /homes/80/eltayeb/artifacts:/data
+      # - /homes/80/eltayeb/artifacts:/data
+      - /data:/data
       # - /export/:/scratch
       # - /export/fn03/eltayeb/bbc/:/data
       # - /export/fn03/eltayeb/bbc/:/share
@@ -30,8 +31,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8711
-      - VLLM_PORT=8712
+      - PORT=22311
+      - VLLM_PORT=23312
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface 
 
@@ -48,8 +49,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8713
-      - VLLM_PORT=8714
+      - PORT=24313
+      - VLLM_PORT=25314
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -66,8 +67,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8715
-      - VLLM_PORT=8716
+      - PORT=26315
+      - VLLM_PORT=27316
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -85,8 +86,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8717
-      - VLLM_PORT=8718
+      - PORT=28317
+      - VLLM_PORT=29318
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -104,8 +105,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8719
-      - VLLM_PORT=8720
+      - PORT=30319
+      - VLLM_PORT=31320
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -122,8 +123,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8721
-      - VLLM_PORT=8722
+      - PORT=32321
+      - VLLM_PORT=33322
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -140,8 +141,8 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8723
-      - VLLM_PORT=8724
+      - PORT=34323
+      - VLLM_PORT=35324
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
@@ -158,7 +159,7 @@ services:
     environment:
       - ROUTER_ADDRESS=http://127.0.0.1:${SERVER_PORT}
       - SELF_HOSTNAME=127.0.0.1
-      - PORT=8725
-      - VLLM_PORT=8726
+      - PORT=36325
+      - VLLM_PORT=37326
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface

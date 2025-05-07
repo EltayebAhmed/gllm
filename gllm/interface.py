@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+import logging
 import time
 from typing import Optional
 
+import backoff
 import requests
 
 from gllm import data_def
 from gllm.consts import Endpoints
-import backoff
 
 
 class RemoteError(Exception):
@@ -143,7 +144,7 @@ class GLLM:
             f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
         )
 
-    def load_model(self, model_identifier: str):
+    def load_model(self, model_identifier: str, force_reload: bool = False):
         """Load a model onto a GLLM worker.
 
         Note: Function only supported for GLLM worker backend.
@@ -152,7 +153,9 @@ class GLLM:
                 path to the model or a huggingface model identifier. Path
                 must be accessible by the worker.
         """
-        request = data_def.LoadModelRequest(model_path=model_identifier)
+        request = data_def.LoadModelRequest(
+            model_path=model_identifier, force_reload=force_reload
+        )
         response = requests.post(
             self.server_address + Endpoints.LOAD_MODEL, json=request.model_dump()
         )
@@ -187,7 +190,7 @@ class GLLM:
             if self.is_healthy():
                 return True
             time.sleep(check_interval)
-            print("Waiting for server to be healthy ...")
+            logging.info("Waiting for server to be healthy ...")
 
         raise TimeoutError("Server did not become healthy in time")
 
@@ -205,15 +208,16 @@ class GLLM:
             except requests.RequestException:
                 pass
             time.sleep(check_interval)
-            print("Waiting for server to come live ...")
+            logging.info("Waiting for server to come live ...")
 
         raise TimeoutError("Server did not come live in time")
 
     def release_gpus(self, timeout: int = 20):
         response = requests.post(
-            self.server_address + Endpoints.RELEASE_GPUS, headers=self.headers,
+            self.server_address + Endpoints.RELEASE_GPUS,
+            headers=self.headers,
             timeout=timeout,
-        # No retries for release_gpus
+            # No retries for release_gpus
         )
         if response.status_code != 200:
             raise RemoteError(

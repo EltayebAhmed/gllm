@@ -16,6 +16,10 @@ import utils
 # 2. Boot unhealthy servers that fail too many request
 # 3. Allow errors (response code + text) from vllm serve to
 # be propagated through worker and balancer to the end client
+# 4. Add logging recording to file
+# 5. Add tests
+# 6. Add support for caching. Do not reload model if it is already loaded.
+# but also add a force_reload flag to break caching if needed.
 
 app = Flask(__name__)
 

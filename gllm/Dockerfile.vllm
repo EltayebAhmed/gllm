@@ -6,6 +6,8 @@ RUN pip install Flask --no-cache-dir
 # Create a new user and group
 ARG UID
 ARG GID
+RUN groupadd -g $GID eltayeb || true
+RUN userdel -f $(getent passwd $UID | cut -d: -f1) 2>/dev/null || true
 RUN useradd -u $UID -g $GID --create-home duser
 
 # # # Set ownership and permissions for relevant directories
@@ -22,5 +24,6 @@ ENV PATH=$PATH
 
 # # Set the working directory
 WORKDIR /home/duser
-
+# Install transformers from source. Fixes a bug with transformers x VLLM
+RUN pip install git+https://github.com/huggingface/transformers
 COPY . .
