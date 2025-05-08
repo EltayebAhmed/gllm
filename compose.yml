@@ -163,3 +163,14 @@ services:
       - VLLM_PORT=37326
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
+
+    global_worker:
+      extends:
+        service: local_base
+      entrypoint: ["/bin/bash"]
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - capabilities: [gpu]
+                driver: nvidia

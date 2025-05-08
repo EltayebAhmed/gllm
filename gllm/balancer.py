@@ -13,14 +13,15 @@ import utils
 # TODO:
 # 1. Fix problem with workers come online after load model. Explicitly we would have to
 # not send requests to these worker until they are healthy.
+# 2. Allow the balancer to do retries on failed reuquests, to different workers if possible
 # 2. Boot unhealthy servers that fail too many request
 # 3. Allow errors (response code + text) from vllm serve to
 # be propagated through worker and balancer to the end client
 # 4. Add logging recording to file
 # 5. Add tests
-# 6. Add support for caching. Do not reload model if it is already loaded.
-# but also add a force_reload flag to break caching if needed.
-
+# 6. Add an argument to completions/chat-completions to provide a uniue conversation id
+# subsequent requests with the conversation id should be sent to the same worker.
+# This allows KV caching to make our server go VROOooOOOOOooooM
 app = Flask(__name__)
 
 

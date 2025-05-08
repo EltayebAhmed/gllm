@@ -28,7 +28,10 @@ class GLLM:
         # A few months latet this temporary solution is still around.
         self.last_loaded_model = None
 
-    # @backoff.on_exception(backoff.expo, RemoteError, max_time=1)
+
+    # TODO: tighten up. We need requests.exceptions.ConnectTimeout
+    # and not sure what else.
+    @backoff.on_exception(backoff.expo, Exception, max_time=900)
     def get_completions(
         self,
         model: str,
