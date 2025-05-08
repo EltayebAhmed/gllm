@@ -168,6 +168,7 @@ services:
     extends:
       service: local_base
     entrypoint: ["vllm","serve","Qwen/Qwen2.5-Coder-32B","--enable-prefix-caching","--max-model-len","14000","--port","8181","--disable-log-stats","--disable-log-requests","--uvicorn-log-level=error","--trust-remote-code", "--pipeline-parallel-size","8"]
+    shm_size: "500gb"
     deploy:
       resources:
         reservations:
