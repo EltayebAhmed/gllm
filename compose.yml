@@ -164,13 +164,11 @@ services:
       - HF_TOKEN=${HF_TOKEN}
       - HF_HOME=/data/.cache/huggingface
 
-    global_worker:
-      extends:
-        service: local_base
-      entrypoint: ["/bin/bash"]
-      deploy:
-        resources:
-          reservations:
-            devices:
-              - capabilities: [gpu]
-                driver: nvidia
+  global_worker:
+    extends:
+      service: local_base
+    entrypoint: ["vllm","serve","Qwen/Qwen2.5-Coder-32B","--enable-prefix-caching","--max-model-len","14000","--port","8181","--disable-log-stats","--disable-log-requests","--uvicorn-log-level=error","--trust-remote-code"]
+    deploy:
+      resources:
+        reservations:
+          devices:
