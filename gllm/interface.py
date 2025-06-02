@@ -28,10 +28,9 @@ class GLLM:
         # A few months latet this temporary solution is still around.
         self.last_loaded_model = None
 
-
     # TODO: tighten up. We need requests.exceptions.ConnectTimeout
     # and not sure what else.
-    @backoff.on_exception(backoff.expo, Exception, max_time=900)
+    @backoff.on_exception(backoff.expo, Exception, max_time=1000)
     def get_completions(
         self,
         model: str,
@@ -147,7 +146,9 @@ class GLLM:
             f"Unknown return mode: {return_mode}, must be 'openai' or 'primitives'"
         )
 
-    def load_model(self, model_identifier: str, force_reload: bool = False):
+    def load_model(
+        self, model_identifier: str, force_reload: bool = False, timeout: int = 10
+    ):
         """Load a model onto a GLLM worker.
 
         Note: Function only supported for GLLM worker backend.
@@ -160,7 +161,9 @@ class GLLM:
             model_path=model_identifier, force_reload=force_reload
         )
         response = requests.post(
-            self.server_address + Endpoints.LOAD_MODEL, json=request.model_dump()
+            self.server_address + Endpoints.LOAD_MODEL,
+            json=request.model_dump(),
+            timeout=timeout,
         )
         if response.status_code != 200:
             raise ValueError(
