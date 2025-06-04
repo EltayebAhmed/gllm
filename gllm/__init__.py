@@ -1,1 +1,1 @@
-from .interface import GLLM
+from gllm.interface import GLLM

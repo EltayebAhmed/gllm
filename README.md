@@ -13,3 +13,11 @@ Instructions for Installation
 ``` >>> docker compose -p <your_name> up
 ```
 6. To modify GPU assignment or number of GPUs add or remove workers to compose.yml
+
+
+# TODOS
+## Before release
+1. Make work with OpenAI client
+2. Add cli tool
+## Post release
+3. Make cursed decorator that redecorates the function with backoff on every call. This allows us to change backoff time. Do this by making the decorator return a callable object. 

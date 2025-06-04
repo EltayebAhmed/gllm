@@ -1,14 +1,14 @@
 import enum
 
 class Endpoints(str, enum.Enum):
-    # OpenAI endpoints
+    # OpenAI endpoints.
     CHAT_COMPLETIONS = "/v1/chat/completions"
     COMPLETIONS = "/v1/completions"
 
-    # VLLM OpenAI related endpoints
+    # VLLM OpenAI Server related endpoints.
     HEALTH = "/health"
 
-    # GLLM custom endpoints
+    # GLLM custom endpoints.
     RELEASE_GPUS = "/release_gpus"
 
     ADD_WORKER = "/add_worker"
