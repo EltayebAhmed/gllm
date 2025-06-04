@@ -33,4 +33,12 @@ Repository = "https://github.com/yourusername/gllm"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["gllm*"]
-exclude = ["tests*"] 
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+# Pytest configuration for the gllm test suite
+markers = [
+    "threading: marks tests that use threading and may have context teardown issues",
+]
+# Increase verbosity and ignore common test warnings
+addopts = "-v --tb=short" 
