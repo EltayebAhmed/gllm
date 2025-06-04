@@ -3,3 +3,9 @@ backoff
 requests
 pydantic
 openai
+
+# Testing dependencies
+pytest
+pytest-mock
+pytest-cov
+pytest-asyncio

@@ -4,10 +4,10 @@ import threading
 
 import requests
 
-from consts import Endpoints
-import data_def
-from flask import Flask, Response, request
-import utils
+from .consts import Endpoints
+from . import data_def
+from flask import Flask, Response, request, Blueprint
+from . import utils
 
 ##################
 # TODO:
@@ -24,6 +24,8 @@ import utils
 # This allows KV caching to make our server go VROOooOOOOOooooM
 app = Flask(__name__)
 
+# Create a blueprint for all endpoints
+api_blueprint = Blueprint('api', __name__)
 
 model = ""
 
@@ -45,7 +47,7 @@ def get_least_busy_worker():
         return worker
 
 
-@app.route(Endpoints.HEALTH, methods=["GET"])
+@api_blueprint.route(Endpoints.HEALTH, methods=["GET"])
 def health():
     if len(worker_queue_size.entity) == 0:
         return Response("No workers available", status=503)
@@ -57,12 +59,15 @@ def health():
     return Response("All workers healthy", status=200)
 
 
-@app.route(Endpoints.ADD_WORKER, methods=["POST"])
+@api_blueprint.route(Endpoints.ADD_WORKER, methods=["POST"])
 def add_worker():
     global model, worker_queue_size
 
-    worker_add_rq = utils.get_request_params(request)
-    worker_add_rq = data_def.AddWorkerRequest(**worker_add_rq)
+    try:
+        worker_add_rq = utils.get_request_params(request)
+        worker_add_rq = data_def.AddWorkerRequest(**worker_add_rq)
+    except Exception as e:
+        return Response(f"Invalid request data: {str(e)}", status=400)
 
     with worker_queue_size.lock:
         worker_queue_size.entity[worker_add_rq.address] = 0
@@ -80,7 +85,7 @@ def notify_worker_request_complete(worker_address):
         worker_queue_size.entity[worker_address] -= 1
 
 
-@app.route(Endpoints.CHAT_COMPLETIONS, methods=["POST"])
+@api_blueprint.route(Endpoints.CHAT_COMPLETIONS, methods=["POST"])
 def get_chat_completion():
     chat_request = utils.get_request_params(request)
     chat_request = data_def.ChatGenerationRequest(**chat_request)
@@ -101,7 +106,7 @@ def get_chat_completion():
     return Response(response.text, status=response.status_code)
 
 
-@app.route(Endpoints.COMPLETIONS, methods=["POST"])
+@api_blueprint.route(Endpoints.COMPLETIONS, methods=["POST"])
 def get_completion():
     completion_request = utils.get_request_params(request)
     completion_request = data_def.CompletionRequest(**completion_request)
@@ -123,7 +128,7 @@ def get_completion():
     return Response(response.text, status=response.status_code)
 
 
-@app.route(Endpoints.LOAD_MODEL, methods=["POST"])
+@api_blueprint.route(Endpoints.LOAD_MODEL, methods=["POST"])
 def load_model():
     global model
     load_model_rq = utils.get_request_params(request)
@@ -145,11 +150,15 @@ def load_model():
     return Response("Model load requested", status=200)
 
 
-@app.route(Endpoints.RELEASE_GPUS, methods=["POST"])
+@api_blueprint.route(Endpoints.RELEASE_GPUS, methods=["POST"])
 def release_gpus():
     def release_gpu_worker(worker_address):
         response = requests.post(worker_address + Endpoints.RELEASE_GPUS)
         return response.status_code == 200
+
+    # Handle case where there are no workers
+    if len(worker_queue_size.entity) == 0:
+        return Response("Gpus released", status=200)
 
     with multiprocessing.pool.ThreadPool(len(worker_queue_size.entity)) as pool:
         results = pool.map(release_gpu_worker, worker_queue_size.entity.keys())
@@ -158,6 +167,11 @@ def release_gpus():
         return Response("Failed to release gpus", status=500)
 
     return Response("Gpus released", status=200)
+
+
+# Register the blueprint twice - once without prefix and once with /v1 prefix
+app.register_blueprint(api_blueprint)
+app.register_blueprint(api_blueprint, url_prefix='/v1', name='api_v1')
 
 
 if __name__ == "__main__":
