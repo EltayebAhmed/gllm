@@ -7,6 +7,7 @@ import signal
 import os
 import time
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from . import data_def
 from .consts import Endpoints
 
@@ -33,37 +34,58 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 
+def load_model_on_single_worker(worker_url, load_request):
+    """Load model on a single worker and return result."""
+    try:
+        print(f"Loading model on {worker_url}...")
+        response = requests.post(
+            f"{worker_url}{Endpoints.LOAD_MODEL.value}",
+            json=load_request.model_dump(),
+            timeout=5  # 5 seconds timeout since load_model kicks off and returns immediately
+        )
+        
+        if response.status_code == 200:
+            return ("success", worker_url, None, None)
+        else:
+            return ("error", worker_url, response.status_code, response.text)
+            
+    except requests.RequestException as e:
+        return ("network_error", worker_url, "Network Error", str(e))
+
+
 def load_model_on_workers(workers, model_path):
-    """Load model on all specified workers and return results."""
+    """Load model on all specified workers in parallel and return results."""
     if not workers:
         raise ValueError("No workers specified. Use --workers to specify worker URLs.")
     
-    print(f"Loading model '{model_path}' on {len(workers)} workers...")
+    print(f"Loading model '{model_path}' on {len(workers)} workers in parallel...")
     
     successful_workers = []
     failed_workers = []
     
     load_request = data_def.LoadModelRequest(model_path=model_path, force_reload=False)
     
-    for worker_url in workers:
-        try:
-            print(f"Loading model on {worker_url}...")
-            response = requests.post(
-                f"{worker_url}{Endpoints.LOAD_MODEL.value}",
-                json=load_request.model_dump(),
-                timeout=30  # Longer timeout for model loading
-            )
+    # Use ThreadPoolExecutor to make requests in parallel
+    with ThreadPoolExecutor(max_workers=min(len(workers), 10)) as executor:
+        # Submit all tasks
+        future_to_worker = {
+            executor.submit(load_model_on_single_worker, worker_url, load_request): worker_url 
+            for worker_url in workers
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_worker):
+            result_type, worker_url, error_code, error_msg = future.result()
             
-            if response.status_code == 200:
+            if result_type == "success":
                 successful_workers.append(worker_url)
                 print(f"✓ Successfully loaded model on {worker_url}")
             else:
-                failed_workers.append((worker_url, response.status_code, response.text))
-                print(f"✗ Failed to load model on {worker_url}: {response.status_code} - {response.text}")
-                
-        except requests.RequestException as e:
-            failed_workers.append((worker_url, "Network Error", str(e)))
-            print(f"✗ Failed to connect to {worker_url}: {e}")
+                failed_workers.append((worker_url, error_code, error_msg))
+                if result_type == "error":
+                    print(f"✗ Failed to load model on {worker_url}: {error_code} - {error_msg}")
+                else:  # network_error
+                    print(f"✗ Failed to connect to {worker_url}: {error_msg}")
     
     # Print summary report
     print(f"\n{'='*60}")
