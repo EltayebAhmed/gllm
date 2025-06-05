@@ -97,14 +97,15 @@ def parse_worker_definitions(worker_defs):
     return workers
 
 
-def start_worker(gpu_ids, worker_port, vllm_port, worker_index):
+def start_worker(gpu_ids, worker_port, vllm_port, worker_index, router_address):
     """Start a single worker with specified GPU configuration and ports.
     
     Args:
-        gpu_ids (list): List of GPU IDs for this worker
-        worker_port (int): Port for the worker to listen on
-        vllm_port (int): Port for the vLLM backend
-        worker_index (int): Index of this worker (for logging)
+        gpu_ids (list): List of GPU IDs for this worker.
+        worker_port (int): Port for the worker to listen on.
+        vllm_port (int): Port for the vLLM backend.
+        worker_index (int): Index of this worker (for logging).
+        router_address (str): Address of the router to register with.
         
     Returns:
         subprocess.Popen: The worker process
@@ -121,14 +122,14 @@ def start_worker(gpu_ids, worker_port, vllm_port, worker_index):
     env["CUDA_VISIBLE_DEVICES"] = cuda_devices
     env["PORT"] = str(worker_port)
     env["VLLM_PORT"] = str(vllm_port)
-    
+    env["ROUTER_ADDRESS"] = router_address
     try:
         # Start the worker process
         worker_process = subprocess.Popen(
             cmd,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
             text=True
         )
         
@@ -164,11 +165,13 @@ def start_cluster(args):
     worker_processes = []
     worker_urls = []
     
+    router_address = f"http://localhost:{args.port}"
+
     for i, gpu_ids in enumerate(worker_configs):
         worker_port = args.worker_port_range_start + (i * 100)
         vllm_port = worker_port + 10
         
-        worker_process = start_worker(gpu_ids, worker_port, vllm_port, i)
+        worker_process = start_worker(gpu_ids, worker_port, vllm_port, i, router_address)
         if worker_process:
             worker_processes.append(worker_process)
             worker_urls.append(f"http://localhost:{worker_port}")
@@ -207,100 +210,155 @@ def start_cluster(args):
     
     # Start the balancer
     print("Starting balancer...")
-    result = start_balancer(balancer_args)
-    
+    # 1. Start the balancer process
+    balancer_process = start_balancer_process(args.ip, args.port)
+    if balancer_process is None:
+        print("Failed to start balancer")
+        signal_handler(signal.SIGINT, None)
+        return 1
+
+    try:
+        balancer_url = f"http://{args.ip}:{args.port}"
+        
+        # 2. Call register_workers_with_balancer on existing workers
+        if balancer_args.existing_workers:
+            print("Registering existing workers with balancer...")
+            successful, failed = register_workers_with_balancer(balancer_args.existing_workers, balancer_url)
+            if failed > 0:
+                print(f"Warning: Failed to register {failed} existing workers.")
+        
+        # 3. Call register_workers_with_balancer on the new workers we spun up
+        print("Registering new workers with balancer...")
+        successful, failed = register_workers_with_balancer(worker_urls, balancer_url)
+        if failed > 0:
+            print(f"Warning: Failed to register {failed} new workers.")
+        
+        # 4. Call load_model
+        if args.load_model:
+            print(f"\nInitiating model loading...")
+            successful, failed = load_model_on_workers(balancer_url, args.load_model)
+            if failed > 0:
+                print("Warning: Model loading failed.")
+                return 1
+        
+        print("✓ Cluster started successfully!")
+        print(f"Balancer running at http://{args.ip}:{args.port}")
+        print("Press Ctrl+C to stop the cluster.")
+        
+        # 5. Enter a polling loop on the balancer
+        try:
+            while True:
+                if balancer_process.poll() is not None:
+                    stdout, stderr = balancer_process.communicate()
+                    print("Balancer process has terminated unexpectedly.")
+                    print(f"stdout: {stdout}")
+                    print(f"stderr: {stderr}")
+                    signal_handler(signal.SIGINT, None)
+                    return 1
+                
+                # Check if any worker processes have died
+                for i, worker_process in enumerate(worker_processes):
+                    if worker_process.poll() is not None:
+                        print(f"Worker {i+1} has terminated unexpectedly.")
+                        signal_handler(signal.SIGINT, None)
+                        return 1
+                
+                time.sleep(1)
+                
+        except KeyboardInterrupt:
+            signal_handler(signal.SIGINT, None)
+            
+    except Exception as e:
+        print(f"Error in cluster operation: {e}")
+        signal_handler(signal.SIGINT, None)
+        return 1
+
+    result = 0
     return result
 
 
-def load_model_on_single_worker(worker_url, load_request):
-    """Load model on a single worker and return result."""
-    try:
-        print(f"Loading model on {worker_url}...")
-        response = requests.post(
-            f"{worker_url}{Endpoints.LOAD_MODEL.value}",
-            json=load_request.model_dump(),
-            timeout=5  # 5 seconds timeout since load_model kicks off and returns immediately
-        )
-        
-        if response.status_code == 200:
-            return ("success", worker_url, None, None)
-        else:
-            return ("error", worker_url, response.status_code, response.text)
-            
-    except requests.RequestException as e:
-        return ("network_error", worker_url, "Network Error", str(e))
 
-
-def load_model_on_workers(workers, model_path):
-    """Load model on all specified workers in parallel and return results."""
-    if not workers:
-        raise ValueError("No workers specified. Use --workers to specify worker URLs.")
-    
-    print(f"Loading model '{model_path}' on {len(workers)} workers in parallel...")
-    
-    successful_workers = []
-    failed_workers = []
+def load_model_on_workers(balancer_url, model_path):
+    """Load model via the balancer's load_model endpoint."""
+    print(f"Loading model '{model_path}' via balancer at {balancer_url}...")
     
     load_request = data_def.LoadModelRequest(model_path=model_path, force_reload=False)
     
-    # Use ThreadPoolExecutor to make requests in parallel
-    with ThreadPoolExecutor(max_workers=min(len(workers), 10)) as executor:
-        # Submit all tasks
-        future_to_worker = {
-            executor.submit(load_model_on_single_worker, worker_url, load_request): worker_url 
-            for worker_url in workers
-        }
+    try:
+        response = requests.post(
+            f"{balancer_url}{Endpoints.LOAD_MODEL.value}",
+            json=load_request.model_dump(),
+            timeout=10  # Longer timeout for model loading
+        )
         
-        # Collect results as they complete
-        for future in as_completed(future_to_worker):
-            result_type, worker_url, error_code, error_msg = future.result()
+        print(f"Response status code: {response.status_code}")
+        print(f"Response text: {response.text}")
+        
+        if response.status_code == 200:
+            print(f"✓ Successfully initiated model loading via balancer")
+            return 1, 0  # successful_count, failed_count
+        else:
+            print(f"✗ Failed to load model via balancer: {response.status_code}")
+            return 0, 1  # successful_count, failed_count
             
-            if result_type == "success":
-                successful_workers.append(worker_url)
-                print(f"✓ Successfully loaded model on {worker_url}")
+    except requests.RequestException as e:
+        print(f"✗ Failed to connect to balancer: {e}")
+        return 0, 1  # successful_count, failed_count
+
+
+def register_workers_with_balancer(workers, balancer_url):
+    """Register a list of workers with the balancer.
+    
+    Args:
+        workers (list): List of worker URLs to register.
+        balancer_url (str): URL of the balancer to register workers with.
+        
+    Returns:
+        tuple: (successful_count, failed_count)
+    """
+    if not workers:
+        return 0, 0
+    
+    print(f"Registering {len(workers)} workers...")
+    successful_count = 0
+    failed_count = 0
+    
+    for worker_url in workers:
+        try:
+            # Wait a bit more for balancer to be fully ready
+            time.sleep(1)
+            
+            worker_request = data_def.AddWorkerRequest(address=worker_url)
+            response = requests.post(
+                f"{balancer_url}{Endpoints.ADD_WORKER.value}",
+                json=worker_request.model_dump(),
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print(f"✓ Registered worker: {worker_url}")
+                successful_count += 1
             else:
-                failed_workers.append((worker_url, error_code, error_msg))
-                if result_type == "error":
-                    print(f"✗ Failed to load model on {worker_url}: {error_code} - {error_msg}")
-                else:  # network_error
-                    print(f"✗ Failed to connect to {worker_url}: {error_msg}")
+                print(f"✗ Failed to register worker {worker_url}: {response.status_code}")
+                failed_count += 1
+                
+        except requests.RequestException as e:
+            print(f"✗ Failed to register worker {worker_url}: {e}")
+            failed_count += 1
     
-    # Print summary report
-    print(f"\n{'='*60}")
-    print("MODEL LOADING REPORT")
-    print(f"{'='*60}")
-    print(f"Model: {model_path}")
-    print(f"Total workers: {len(workers)}")
-    print(f"Successful: {len(successful_workers)}")
-    print(f"Failed: {len(failed_workers)}")
-    
-    if successful_workers:
-        print(f"\n✓ SUCCESSFUL WORKERS ({len(successful_workers)}):")
-        for worker in successful_workers:
-            print(f"  - {worker}")
-    
-    if failed_workers:
-        print(f"\n✗ FAILED WORKERS ({len(failed_workers)}):")
-        for worker, error_code, error_msg in failed_workers:
-            print(f"  - {worker}: {error_code} - {error_msg}")
-    
-    print(f"{'='*60}")
-    
-    return len(successful_workers), len(failed_workers)
+    return successful_count, failed_count
 
 
-def start_balancer(args):
-    """Start the balancer with the given arguments."""
-    global balancer_process
+def start_balancer_process(ip, port):
+    """Start the balancer process.
     
-    # Check if load-model is specified without workers
-    if args.load_model and not args.existing_workers:
-        raise ValueError("--load-model requires --existing-workers to be specified. Please provide worker URLs.")
-    
-    # Set up signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
+    Args:
+        ip (str): IP address for the balancer to bind to.
+        port (int): Port for the balancer to listen on.
+        
+    Returns:
+        subprocess.Popen or None: The balancer process if successful, None if failed.
+    """
     # Build the command to start the balancer
     cmd = [
         sys.executable, "-m", "gllm.balancer"
@@ -308,10 +366,10 @@ def start_balancer(args):
     
     # Set environment variables for the balancer
     env = os.environ.copy()
-    env["PORT"] = str(args.port)
-    env["HOST"] = args.ip
+    env["PORT"] = str(port)
+    env["HOST"] = ip
     
-    print(f"Starting balancer on {args.ip}:{args.port}...")
+    print(f"Starting balancer on {ip}:{port}...")
     
     try:
         # Start the balancer process
@@ -332,48 +390,48 @@ def start_balancer(args):
             print(f"Balancer failed to start:")
             print(f"stdout: {stdout}")
             print(f"stderr: {stderr}")
-            return 1
+            return None
         
         print(f"Balancer started successfully (PID: {balancer_process.pid})")
+        return balancer_process
         
+    except Exception as e:
+        print(f"Error starting balancer: {e}")
+        return None
+
+
+def start_balancer(args):
+    """Start the balancer with the given arguments."""
+    global balancer_process
+    
+    # Check if load-model is specified without workers
+    if args.load_model and not args.existing_workers:
+        raise ValueError("--load-model requires --existing-workers to be specified. Please provide worker URLs.")
+    
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Start the balancer process
+    balancer_process = start_balancer_process(args.ip, args.port)
+    if balancer_process is None:
+        return 1
+    
+    try:
         # Register workers if provided
         if args.existing_workers:
-            print(f"Registering {len(args.existing_workers)} workers...")
             balancer_url = f"http://{args.ip}:{args.port}"
+            successful, failed = register_workers_with_balancer(args.existing_workers, balancer_url)
             
-            for worker_url in args.existing_workers:
-                try:
-                    # Wait a bit more for balancer to be fully ready
-                    time.sleep(1)
-                    
-                    worker_request = data_def.AddWorkerRequest(address=worker_url)
-                    response = requests.post(
-                        f"{balancer_url}/add_worker",
-                        json=worker_request.model_dump(),
-                        timeout=10
-                    )
-                    
-                    if response.status_code == 200:
-                        print(f"✓ Registered worker: {worker_url}")
-                    else:
-                        print(f"✗ Failed to register worker {worker_url}: {response.status_code}")
-                        
-                except requests.RequestException as e:
-                    print(f"✗ Failed to register worker {worker_url}: {e}")
+            if failed > 0:
+                print(f"Warning: Failed to register {failed} workers.")
         
         # Load model if specified
         if args.load_model:
-            try:
-                print(f"\nInitiating model loading...")
-                successful, failed = load_model_on_workers(args.existing_workers, args.load_model)
-                
-                if failed > 0:
-                    print(f"\nWarning: Model loading failed on {failed} workers.")
-                else:
-                    print(f"\nSuccess: Model loaded on all {successful} workers.")
-                    
-            except Exception as e:
-                print(f"Error during model loading: {e}")
+            print(f"\nInitiating model loading...")
+            successful, failed = load_model_on_workers(balancer_url, args.load_model)
+            if failed > 0:
+                print("Warning: Model loading failed.")
                 return 1
         
         print("Balancer is running. Press Ctrl+C to stop.")
