@@ -18,7 +18,6 @@ from . import utils
 # 3. Allow errors (response code + text) from vllm serve to
 # be propagated through worker and balancer to the end client
 # 4. Add logging recording to file
-# 5. Add tests
 # 6. Add an argument to completions/chat-completions to provide a uniue conversation id
 # subsequent requests with the conversation id should be sent to the same worker.
 # This allows KV caching to make our server go VROOooOOOOOooooM
@@ -158,7 +157,7 @@ def release_gpus():
 
     # Handle case where there are no workers
     if len(worker_queue_size.entity) == 0:
-        return Response("Gpus released", status=200)
+        return Response("No workers to release gpus from.", status=200)
 
     with multiprocessing.pool.ThreadPool(len(worker_queue_size.entity)) as pool:
         results = pool.map(release_gpu_worker, worker_queue_size.entity.keys())
@@ -177,4 +176,5 @@ app.register_blueprint(api_blueprint, url_prefix='/v1', name='api_v1')
 if __name__ == "__main__":
     port = os.environ.get("PORT", 5000)
     port = int(port)
-    app.run(port=port, threaded=True, host="0.0.0.0")
+    host = os.environ.get("HOST", "0.0.0.0")
+    app.run(port=port, threaded=True, host=host)

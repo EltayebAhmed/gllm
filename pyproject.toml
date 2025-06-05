@@ -26,6 +26,9 @@ dependencies = [
     "openai",
 ]
 
+[project.scripts]
+gllm = "gllm.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/yourusername/gllm"
 Repository = "https://github.com/yourusername/gllm"
