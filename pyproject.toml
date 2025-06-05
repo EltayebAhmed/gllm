@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.scripts]
-gllm = "gllm.cli:main"
+gllm = "gllm.bin.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/gllm"

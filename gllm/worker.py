@@ -1,11 +1,14 @@
 import dataclasses
 import logging
 import os
+import signal
 import subprocess
+import sys
 import threading
 
 import openai
 import psutil
+import torch
 import requests
 
 import data_def
@@ -18,6 +21,15 @@ model_path = ""
 app = Flask(__name__)
 
 start_and_kill_lock = threading.Lock()
+
+
+def signal_handler(signum, frame):
+    """Handle termination signals to clean up vLLM process."""
+    print(f"\nReceived signal {signum}, shutting down worker...")
+    logging.info(f"Worker received signal {signum}, terminating vLLM process")
+    terminate_vllm()
+    logging.info("Worker terminated gracefully")
+    sys.exit(0)
 
 
 def kill_process_and_children(pid: int):
@@ -57,6 +69,7 @@ def spin_up_vllm(model_path: str, vllm_port: int):
         terminate_vllm()
     with start_and_kill_lock:
         print(f"Starting VLLM process on port {vllm_port}")
+        n_gpus = torch.cuda.device_count()
         vllm_process = subprocess.Popen(
             [
                 "vllm",
@@ -67,6 +80,8 @@ def spin_up_vllm(model_path: str, vllm_port: int):
                 "14000",
                 "--port",
                 str(vllm_port),
+                "--pipeline-parallel-size",
+                str(n_gpus),
                 "--disable-log-stats",
                 "--disable-log-requests",
                 "--uvicorn-log-level=error",
@@ -221,6 +236,10 @@ if __name__ == "__main__":
                 raise e
 
         time.sleep(time_between_retries)
+
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     try:
         app.run(port=config.port, threaded=True, host="0.0.0.0")
