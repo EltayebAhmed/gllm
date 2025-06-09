@@ -5,7 +5,7 @@ import openai
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Simple LLM request')
     parser.add_argument('--address', default="http://localhost:5333", help='Server address')
-    parser.add_argument('--model', default="Qwen/Qwen2.5-0.5B-Instruct", help='Model name')
+    parser.add_argument('--model', default="Qwen/Qwen3-8B", help='Model name')
     parser.add_argument('--no-load', action='store_false', dest='load_model', help='Do not load model')
     args = parser.parse_args()
 
@@ -37,14 +37,29 @@ if __name__ == "__main__":
         glm_handle.load_model(model)
 
         glm_handle.wait_for_health()
-    results = glm_handle.get_chat_completion(
-        model, query, max_tokens=100, temperature=0.5, return_mode="primitives"
-    )
+    # results = glm_handle.get_chat_completion(
+    #     model, query, max_tokens=100, temperature=0.5, return_mode="primitives"
+    # )
 
-    print(results)
-    completions = glm_handle.get_completions(
-        model, "Tell me a joke about a cat.", max_tokens=100, temperature=0.5, n=5,
-        return_mode="primitives"
-    )
-    print(completions)
+    # print(results)
+    
+    # completions = glm_handle.get_completions(
+    #     model, "Tell me a joke about a cat.", max_tokens=100, temperature=0.5, n=5,
+    #     return_mode="primitives"
+    # )
+    # print(completions)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    def get_completion(i):
+        return glm_handle.get_completions(
+            model, "Tell me a joke about a cat.", max_tokens=100, temperature=0.5, n=5,
+            return_mode="primitives"
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(get_completion, i) for i in range(10)]
+        results = [future.result() for future in futures]
+    print(results )
+    print(len(results))
 

@@ -25,3 +25,4 @@ Instructions for Installation
 4. Make errors and error messages propagate up from vllm all the way up to balancer 
 5. Currently return codes are a little cursed (i.e. if failed: return random.randrange(500,599)). Let's make them a little more consistent.
 6. Make worker try next port if vllm throws throws a socket in use. 
+7. Allow the use of extra_body parameters

@@ -1,13 +1,10 @@
 import dataclasses
-import json
-import os
 import tqdm
 import gllm
 import tyro
 from multiprocessing import dummy as mp
 import functools
-
-
+import openai
 
 
 SYSTEM_PROMPT = "You are an AI assistant that responds with jokes about the animal I mention. I will show you some examples first before I give you an animal to make a joke about. Please respond with only the joke."
@@ -21,12 +18,13 @@ Response 2: Why did the dog sit in the shade? Because he didn't want to be a hot
 Ok now it's your turn. Please respond with a joke about the animal {animal}.
 """
 
-def get_a_joke(animal, model_name):
+def get_a_joke(animal, model_name, func):
         messages = [{'role': 'system', 'content': SYSTEM_PROMPT},
                     {'role': 'user', 'content': USER_PROMPT.format(animal=animal)}]
-        result = model.get_chat_completion(model_name, messages, 100, 0.5, return_mode="primitives")
-        return result[0]['content']
-
+        result = func(model=model_name, messages=messages, max_tokens=100, temperature=0.5)
+        # print(dir(result.choices[0]))
+        return model.get_completions(model_name, USER_PROMPT.format(animal=animal), max_tokens=100, temperature=0.5)
+        # return result.choices[0].content
 
 
 @dataclasses.dataclass
@@ -35,15 +33,13 @@ class Config:
     server_address : str = "http://127.0.0.1:5333"
     load_model: bool = True
     n_threads: int = 50
+    client_type: str = "openai"
+
+    def __post_init__(self):
+        assert self.client_type in ["openai", "gllm"]
 
 if __name__ == '__main__':
     cfg = tyro.cli(Config)
-    model = gllm.DistributionServerInterface(cfg.server_address)
-
-    if cfg.load_model:
-        model.load_model(cfg.model_name)
-
-    model.wait_for_health()
 
     system_prompt = "You are a chatbot that responds to any message containing one word with a joke containing that word."
 
@@ -54,7 +50,24 @@ if __name__ == '__main__':
     ]
 
     results = []
-    f = functools.partial(get_a_joke, model_name=cfg.model_name)
+    if cfg.client_type == "openai":
+        model = openai.OpenAI(base_url=cfg.server_address, api_key="dummy")
+        func = model.chat.completions.create
+        test_generation = model.chat.completions.create(
+            model=cfg.model_name,
+            messages=[{"role": "user", "content": "tell me a joke"}],
+            max_tokens=100,
+            temperature=0.5
+        )
+        print(test_generation)
+    elif cfg.client_type == "gllm":
+        model = gllm.GLLM(cfg.server_address)
+        func = model.get_chat_completion
+        if cfg.load_model:
+            model.load_model(cfg.model_name)
+            model.wait_for_health()
+
+    f = functools.partial(get_a_joke, model_name=cfg.model_name, func=func)
     with mp.Pool(cfg.n_threads) as pool:
         for i, result in enumerate(tqdm.tqdm(pool.imap_unordered(f, animals))):
             results.append(result)

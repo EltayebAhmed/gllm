@@ -477,7 +477,7 @@ def main():
     )
     
     balancer_parser.add_argument(
-        "--port",
+        "--port", "-p",
         type=int,
         required=True,
         help="Port for the balancer to listen on"
@@ -523,7 +523,7 @@ def main():
     )
     
     cluster_parser.add_argument(
-        "--workers",
+        "--workers", "-w",
         nargs="*",
         required=True,
         help="Worker GPU configurations (e.g., '3', '3:5', '3,5,2')"

@@ -22,11 +22,6 @@ class GLLM:
         self.api_key = api_key
         self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
-        # TODO: To deal with the statefulness which continues beyond the life of this
-        # object (i.e between success script runs) we need to fetch this from
-        # the server. This is a temporary solution.
-        # A few months latet this temporary solution is still around.
-        self.last_loaded_model = None
 
     # TODO: tighten up. We need requests.exceptions.ConnectTimeout
     # and not sure what else.
@@ -128,8 +123,7 @@ class GLLM:
                 f"Failed to get chat completion. Status code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
-        print(response.text)
-        print(f"Chat response: {response.json()}")
+
         choices = response.json()["choices"]
         # OpenAI and Vllm have different response structures
         # This code tries to handle that but further research might be
@@ -140,8 +134,8 @@ class GLLM:
         if return_mode == "primitives":
             return [choice for choice in choices]
         elif return_mode == "openai":
-            return Response(
-                choices=[MessageWrapper(Message(**choice)) for choice in choices]
+            return data_def.ChatGenerationResponse(
+                choices=[(data_def.Message(**choice)) for choice in choices]
             )
 
         raise ValueError(
@@ -173,7 +167,6 @@ class GLLM:
                 f"Response: {response.text}"
             )
 
-        self.last_loaded_model = model_identifier
         return response.text
 
     def is_healthy(self, timeout: int = 5):
@@ -234,20 +227,3 @@ class GLLM:
             )
 
 
-# The following classes allow us to define an object
-# with a structure that mimics the openAI response.
-# Quack quack.
-@dataclass
-class Message:
-    content: str
-    role: str
-
-
-@dataclass
-class MessageWrapper:
-    message: Message
-
-
-@dataclass
-class Response:
-    choices: list[MessageWrapper]
