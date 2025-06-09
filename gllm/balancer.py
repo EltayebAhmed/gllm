@@ -101,8 +101,7 @@ def get_chat_completion():
     )
 
     notify_worker_request_complete(worker_address)
-
-    return Response(response.text, status=response.status_code)
+    return Response(response.text, status=response.status_code, mimetype=response.headers.get('content-type', 'application/json'))
 
 
 @api_blueprint.route(Endpoints.COMPLETIONS, methods=["POST"])
@@ -123,8 +122,8 @@ def get_completion():
     )
 
     notify_worker_request_complete(worker_address)
-
-    return Response(response.text, status=response.status_code)
+    
+    return Response(response.text, status=response.status_code, mimetype="application/json")
 
 
 @api_blueprint.route(Endpoints.LOAD_MODEL, methods=["POST"])
@@ -135,18 +134,19 @@ def load_model():
 
     model = load_model_rq.model_path
 
-    failed = False
+    failed_workers = []
     for worker in worker_queue_size.entity.keys():
         response = requests.post(
             worker + Endpoints.LOAD_MODEL, json=load_model_rq.model_dump()
         )
         if response.status_code != 200:
-            failed = True
+            failed_workers.append(worker)
 
-    if failed:
-        return Response("Failed to load model", status=500)
+    if failed_workers:
+        formatted_failed_workers = "\n".join(failed_workers)
+        return Response(f"Failed to load model on {len(failed_workers)} workers:\n {formatted_failed_workers}.", status=500)
 
-    return Response("Model load requested", status=200)
+    return Response("Model load requested successfully.", status=200)
 
 
 @api_blueprint.route(Endpoints.RELEASE_GPUS, methods=["POST"])

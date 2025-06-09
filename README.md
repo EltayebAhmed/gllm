@@ -20,4 +20,8 @@ Instructions for Installation
 1. Make work with OpenAI client
 2. Add cli tool
 ## Post release
+
 3. Make cursed decorator that redecorates the function with backoff on every call. This allows us to change backoff time. Do this by making the decorator return a callable object. 
+4. Make errors and error messages propagate up from vllm all the way up to balancer 
+5. Currently return codes are a little cursed (i.e. if failed: return random.randrange(500,599)). Let's make them a little more consistent.
+6. Make worker try next port if vllm throws throws a socket in use. 

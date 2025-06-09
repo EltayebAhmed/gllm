@@ -11,10 +11,10 @@ import psutil
 import torch
 import requests
 
-import data_def
-from consts import Endpoints
+from gllm import data_def
+from gllm.consts import Endpoints
 from flask import Flask, Response, request
-import utils
+from gllm import utils
 
 vllm_process = None
 model_path = ""
@@ -178,12 +178,14 @@ def health():
 def get_chat_completion():
     global config, increment
     chat_request = utils.get_request_params(request)
+    print(f"Chat request: {chat_request}")
     chat_request = data_def.ChatGenerationRequest(**chat_request)
     vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1"
 
     # TODO Make this also REST API. Makes it easier to perculate up
     # response codes and error messages
     client = openai.OpenAI(base_url=vllm_address, api_key="FREE_TOKENS_FOR_ALL")
+    # This is horrible. We should be using the vllm API directly.
     response = client.chat.completions.create(  # type: ignore
         model=chat_request.model,
         messages=dict(chat_request)["messages"],
@@ -192,11 +194,10 @@ def get_chat_completion():
         n=chat_request.n,
         stop=chat_request.stop,
     )
-
     # Iterate over response to turn choices into python primitives
     response = openai_messages_to_chat_gen_resp(response)
 
-    return Response(response.model_dump(), status=200, mimetype="application/json")
+    return Response(response.json(), status=200, mimetype="application/json")
 
 
 @app.route(Endpoints.COMPLETIONS, methods=["POST"])
@@ -204,11 +205,10 @@ def get_completion():
     global config
     completion_request = utils.get_request_params(request)
     completion_request = data_def.CompletionRequest(**completion_request)
-    vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1/completions"
-
-    response = requests.post(vllm_address, json=dict(completion_request))
-
-    return Response(response.text, status=response.status_code)
+    vllm_address = f"http://{config.self_hostname}:{config.vllm_port}/v1{Endpoints.COMPLETIONS.value}"
+    response = requests.post(vllm_address, json=completion_request.model_dump())
+    
+    return Response(response.text, status=response.status_code, mimetype="application/json")
 
 
 @app.route(Endpoints.RELEASE_GPUS, methods=["POST"])

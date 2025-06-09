@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any, Optional
 
 class AddWorkerRequest(BaseModel):
@@ -8,7 +8,6 @@ class AddWorkerRequest(BaseModel):
 class Message(BaseModel):
     role: str
     content: str
-    refusal: Optional[str] = None
 
 
 class ChatGenerationRequest(BaseModel):
@@ -21,6 +20,8 @@ class ChatGenerationRequest(BaseModel):
 
 
 class LoadModelRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    
     model_path: str
     force_reload: bool = False
 

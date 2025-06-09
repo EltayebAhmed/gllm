@@ -128,6 +128,8 @@ class GLLM:
                 f"Failed to get chat completion. Status code: {response.status_code}\n"
                 f"Response: {response.text}"
             )
+        print(response.text)
+        print(f"Chat response: {response.json()}")
         choices = response.json()["choices"]
         # OpenAI and Vllm have different response structures
         # This code tries to handle that but further research might be

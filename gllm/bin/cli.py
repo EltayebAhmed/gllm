@@ -376,8 +376,8 @@ def start_balancer_process(ip, port):
         balancer_process = subprocess.Popen(
             cmd,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
             text=True
         )
         
@@ -386,10 +386,7 @@ def start_balancer_process(ip, port):
         
         # Check if the balancer is running
         if balancer_process.poll() is not None:
-            stdout, stderr = balancer_process.communicate()
             print(f"Balancer failed to start:")
-            print(f"stdout: {stdout}")
-            print(f"stderr: {stderr}")
             return None
         
         print(f"Balancer started successfully (PID: {balancer_process.pid})")
