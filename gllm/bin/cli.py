@@ -75,7 +75,7 @@ def parse_gpu_specification(gpu_spec):
         return list(range(int(start), int(end) + 1))
     elif ',' in gpu_spec:
         # Comma-separated list (e.g., "3,5,2")
-        return [int(gpu.strip()) for gpu in gpu_spec.split(',')]
+        return [int(gpu) for gpu in gpu_spec.split(',')]
     else:
         # Single GPU (e.g., "3")
         return [int(gpu_spec)]

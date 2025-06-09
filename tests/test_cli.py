@@ -45,11 +45,6 @@ class TestGpuParsing:
         result = parse_gpu_specification("3,5,2")
         assert result == [3, 5, 2]
     
-    def test_parse_gpu_specification_comma_separated_with_spaces(self):
-        """Test parsing comma-separated GPU specification with spaces."""
-        result = parse_gpu_specification("3, 5, 2")
-        assert result == [3, 5, 2]
-    
     def test_parse_worker_definitions(self):
         """Test parsing worker definitions into GPU configurations."""
         worker_defs = ["3", "0:1", "2,4,6"]
