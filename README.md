@@ -19,7 +19,8 @@ Instructions for Installation
 ## Before release
 1. Make work with OpenAI client (50% done, check chat completions)
 2. ~Add cli tool~
-3. Add unit test for start-workers
+3. Add cli tool 'start-workers'
+4. Add unit test for start-workers
 ## Post release
 
 3. Make cursed decorator that redecorates the function with backoff on every call. This allows us to change backoff time. Do this by making the decorator return a callable object. 
