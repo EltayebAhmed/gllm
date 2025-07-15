@@ -153,7 +153,8 @@ def load_model():
     if load_model_rq.model_path == model_path and not load_model_rq.force_reload:
         return Response("Model already loaded", status=200)
 
-    spin_up_vllm(load_model_rq.model_path, config.vllm_port)
+    thread = threading.Thread(target=spin_up_vllm, args=(load_model_rq.model_path, config.vllm_port))
+    thread.start()
     model_path = load_model_rq.model_path
     return Response("Model load requested", status=200)
 
