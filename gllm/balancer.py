@@ -1,13 +1,16 @@
 import multiprocessing.pool
 import os
 import threading
+from typing import Optional
 
 import requests
 
-from .consts import Endpoints
+from flask import Blueprint, Flask, Response, request
+
 from . import data_def
-from flask import Flask, Response, request, Blueprint
 from . import utils
+from .balancer_utils import LRUCache
+from .consts import Endpoints, SpecialFields
 
 ##################
 # TODO:
@@ -39,12 +42,47 @@ class WithLock:
 worker_queue_size = WithLock({})
 
 
+
+
+def _get_routing_cache_capacity() -> int:
+    try:
+        return int(os.environ.get("ROUTING_CACHE_SIZE", 5000))
+    except Exception:
+        return 5000
+
+
+# Maps conversation_id -> worker address using an LRU eviction policy
+conversation_routing_cache = WithLock(LRUCache(_get_routing_cache_capacity()))
+
+
 def get_least_busy_worker():
     with worker_queue_size.lock:
         worker, _ = min(
             worker_queue_size.entity.items(), key=lambda x: x[1], default=(None, None)
         )
         return worker
+
+
+def get_worker_for_conversation(conversation_id: Optional[str]) -> Optional[str]:
+    # No conversation id: normal least-busy routing
+    if not conversation_id:
+        return get_least_busy_worker()
+
+    # Try to reuse the same worker for this conversation
+    with conversation_routing_cache.lock:
+        cached_worker = conversation_routing_cache.entity.get(conversation_id)
+
+    if cached_worker and cached_worker in worker_queue_size.entity:
+        return cached_worker
+
+    # Fallback: choose least busy and remember it
+    worker = get_least_busy_worker()
+    if worker is None:
+        return None
+
+    with conversation_routing_cache.lock:
+        conversation_routing_cache.entity.put(conversation_id, worker)
+    return worker
 
 
 @api_blueprint.route(Endpoints.HEALTH, methods=["GET"])
@@ -88,9 +126,10 @@ def notify_worker_request_complete(worker_address):
 @api_blueprint.route(Endpoints.CHAT_COMPLETIONS, methods=["POST"])
 def get_chat_completion():
     chat_request = utils.get_request_params(request)
+    conversation_id = chat_request.pop(SpecialFields.CONVERSATION_ID, None)   
     chat_request = data_def.ChatGenerationRequest(**chat_request)
 
-    worker_address = get_least_busy_worker()
+    worker_address = get_worker_for_conversation(conversation_id)
 
     if worker_address is None:
         return Response("No worker available", status=503)
@@ -108,9 +147,10 @@ def get_chat_completion():
 @api_blueprint.route(Endpoints.COMPLETIONS, methods=["POST"])
 def get_completion():
     completion_request = utils.get_request_params(request)
+    conversation_id = completion_request.pop(SpecialFields.CONVERSATION_ID, None)
     completion_request = data_def.CompletionRequest(**completion_request)
 
-    worker_address = get_least_busy_worker()
+    worker_address = get_worker_for_conversation(conversation_id)
 
     if worker_address is None:
         return Response("No worker available", status=503)

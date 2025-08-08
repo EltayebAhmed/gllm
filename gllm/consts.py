@@ -14,3 +14,6 @@ class Endpoints(str, enum.Enum):
     ADD_WORKER = "/add_worker"
     LOAD_MODEL = "/load_model"
 
+
+class SpecialFields(str, enum.Enum):
+    CONVERSATION_ID = "conversation_id"

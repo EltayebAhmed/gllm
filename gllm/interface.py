@@ -7,7 +7,7 @@ import backoff
 import requests
 
 from gllm import data_def
-from gllm.consts import Endpoints
+from gllm.consts import Endpoints, SpecialFields
 
 
 class RemoteError(Exception):
@@ -43,6 +43,7 @@ class GLLM:
         temperature: float = 1.0,
         top_p: float = 1.0,
         return_mode: str = "openai",
+        conversation_id: Optional[str] = None,
     ):
         completion_request = data_def.CompletionRequest(
             model=model,
@@ -59,11 +60,16 @@ class GLLM:
             stop=stop,
             temperature=temperature,
             top_p=top_p,
+            conversation_id=conversation_id,
         )
+
+        payload = completion_request.model_dump()
+        if conversation_id:
+            payload[SpecialFields.CONVERSATION_ID] = conversation_id
 
         response = requests.post(
             self.server_address + Endpoints.COMPLETIONS,
-            json=completion_request.model_dump(),
+            json=payload,
             headers=self.headers,
         )
         if response.status_code != 200:
@@ -102,6 +108,7 @@ class GLLM:
         n: int = 1,
         stop: Optional[list[str] | str] = None,
         return_mode: str = "openai",
+        conversation_id: Optional[str] = None,
     ):
         chat_request = data_def.ChatGenerationRequest(
             model=model,
@@ -111,6 +118,10 @@ class GLLM:
             n=n,
             stop=stop,
         )
+
+        payload = chat_request.model_dump()
+        if conversation_id:
+            payload[SpecialFields.CONVERSATION_ID] = conversation_id
 
         response = requests.post(
             self.server_address + Endpoints.CHAT_COMPLETIONS,
