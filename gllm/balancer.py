@@ -1,5 +1,6 @@
 import multiprocessing.pool
 import os
+import random
 import threading
 
 import requests
@@ -29,6 +30,9 @@ api_blueprint = Blueprint('api', __name__)
 
 model = ""
 
+# Get CHECK_SIZE from environment variable, default to 5
+CHECK_SIZE = int(os.environ.get("CHECK_SIZE", 5))
+
 
 class WithLock:
     def __init__(self, entity):
@@ -41,9 +45,16 @@ worker_queue_size = WithLock({})
 
 def get_least_busy_worker():
     with worker_queue_size.lock:
-        worker, _ = min(
-            worker_queue_size.entity.items(), key=lambda x: x[1], default=(None, None)
-        )
+        workers = list(worker_queue_size.entity.items())
+        if not workers:
+            return None
+
+        # Sample min(n_workers, CHECK_SIZE) workers randomly
+        sample_size = min(len(workers), CHECK_SIZE)
+        sampled_workers = random.sample(workers, sample_size)
+
+        # Return the worker with the lowest queue from the sample
+        worker, _ = min(sampled_workers, key=lambda x: x[1])
         return worker
 
 
@@ -71,7 +82,9 @@ def add_worker():
 
     with worker_queue_size.lock:
         worker_queue_size.entity[worker_add_rq.address] = 0
-
+    print(f"{worker_queue_size.entity=}\n{len(worker_queue_size.entity)=}")
+    import logging
+    logging.warn(f"{worker_queue_size.entity=}\n{len(worker_queue_size.entity)=}")
     return Response(model, status=200)
 
 
