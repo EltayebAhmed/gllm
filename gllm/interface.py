@@ -36,6 +36,7 @@ class GLLM:
         logit_bias: dict = {},
         logprobs: Optional[int] = None,
         max_tokens: int = 16,
+        min_p: Optional[float] = None,
         n: int = 1,
         presence_penalty: float = 0.0,
         seed: Optional[int] = None,
@@ -53,6 +54,7 @@ class GLLM:
             logit_bias=logit_bias,
             logprobs=logprobs,
             max_tokens=max_tokens,
+            min_p=min_p,
             n=n,
             presence_penalty=presence_penalty,
             seed=seed,
@@ -99,6 +101,7 @@ class GLLM:
         messages: list[dict[str, str]],
         max_tokens: int,
         temperature: float,
+        min_p: Optional[float] = None,
         n: int = 1,
         stop: Optional[list[str] | str] = None,
         return_mode: str = "openai",
@@ -108,6 +111,7 @@ class GLLM:
             messages=messages,  # type: ignore
             max_tokens=max_tokens,
             temperature=temperature,
+            min_p=min_p,
             n=n,
             stop=stop,
         )

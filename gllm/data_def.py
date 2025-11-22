@@ -15,6 +15,7 @@ class ChatGenerationRequest(BaseModel):
     model: str
     max_tokens: int
     temperature: float = 1.0
+    min_p: Optional[float] = None
     n: int = 1
     stop: Optional[list[str]| str] = None
 
@@ -38,6 +39,7 @@ class CompletionRequest(BaseModel):
     logit_bias: dict = {}
     logprobs: Optional[int] = None
     max_tokens: int = 16
+    min_p: Optional[float] = None
     n : int = 1
     presence_penalty: float = 0.0
     seed: Optional[int] = None
