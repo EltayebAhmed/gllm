@@ -43,7 +43,43 @@ This command starts:
 - vLLM backends on ports 8010, 8110, 8210, 8310
 - Automatically loads the Qwen model on all workers
 
+## OpenAI API Compatibility
+
+GLLM exposes OpenAI-compatible endpoints, so you can use the official OpenAI Python client:
+
+```python
+import openai
+
+client = openai.OpenAI(
+    base_url="http://localhost:5333",
+    api_key="dummy"  # API key required by client but not validated
+)
+
+# Chat completion
+response = client.chat.completions.create(
+    model="Qwen/Qwen2.5-7B-Instruct",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant"},
+        {"role": "user", "content": "Write a haiku about recursion"}
+    ],
+    max_tokens=100,
+    temperature=0.8
+)
+print(response.choices[0].message.content)
+
+# Text completion
+response = client.completions.create(
+    model="Qwen/Qwen2.5-7B",
+    prompt="The quick brown fox",
+    max_tokens=50
+)
+print(response.choices[0].text)
+```
+
+
 ### Python Client Usage
+We optionally provide a custom python client with functions to dynamically load a remote mode and to wait for loading to finish.
+Alternatively, you can use the official OpenAI client and use the REST endpoints (documented below) to handle model swapping and reloading.
 
 ```python
 import gllm
@@ -355,39 +391,6 @@ response = client.get_chat_completion(
 )
 
 print(response.choices[0].message.content)
-```
-
-## OpenAI API Compatibility
-
-GLLM exposes OpenAI-compatible endpoints, so you can use the official OpenAI Python client:
-
-```python
-import openai
-
-client = openai.OpenAI(
-    base_url="http://localhost:5333",
-    api_key="dummy"  # API key required by client but not validated
-)
-
-# Chat completion
-response = client.chat.completions.create(
-    model="Qwen/Qwen2.5-7B-Instruct",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant"},
-        {"role": "user", "content": "Write a haiku about recursion"}
-    ],
-    max_tokens=100,
-    temperature=0.8
-)
-print(response.choices[0].message.content)
-
-# Text completion
-response = client.completions.create(
-    model="Qwen/Qwen2.5-7B",
-    prompt="The quick brown fox",
-    max_tokens=50
-)
-print(response.choices[0].text)
 ```
 
 ## Architecture Overview
